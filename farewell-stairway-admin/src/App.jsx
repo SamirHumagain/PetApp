@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from './supabaseClient';
 import { 
   initialTemples, 
   initialBookings, 
@@ -123,6 +124,43 @@ export default function App() {
     setTimeout(() => setNotification(null), 3500);
   };
 
+  // Fetch live bookings & payments directly from Supabase
+  const loadSupabaseData = async () => {
+    try {
+      const { data: bData, error } = await supabase
+        .from('bookings')
+        .select('*, temples(name), payments(*)')
+        .order('created_at', { ascending: false });
+
+      if (bData && bData.length > 0) {
+        const mapped = bData.map(b => {
+          const pay = b.payments && b.payments.length > 0 ? b.payments[0] : null;
+          return {
+            id: b.booking_number || b.id.slice(0, 8),
+            petName: b.pet_name,
+            petType: b.pet_type,
+            ownerName: 'Customer',
+            templeName: b.temples?.name || 'Wat Klong Toey Nai Pet Memorial',
+            date: b.ceremony_date,
+            service: b.service_type || 'Turnkey Package',
+            amount: Number(b.total_amount),
+            paymentStatus: pay?.status === 'PAID' ? 'PAID' : (b.status === 'CONFIRMED' ? 'PAID' : 'PENDING'),
+            paymentMethod: pay?.channel === 'PROMPTPAY' ? '2C2P PromptPay QR' : '2C2P Credit Card (Visa)',
+            gatewayInvoice: pay?.invoice_no || 'INV-PENDING',
+            pickupAddress: b.pickup_address || 'Bangkok'
+          };
+        });
+        setBookings(mapped);
+      }
+    } catch (err) {
+      console.warn('Could not sync with Supabase:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadSupabaseData();
+  }, []);
+
   // Reset Demo State
   const handleResetDemo = () => {
     setTemples(initialTemples);
@@ -232,8 +270,9 @@ export default function App() {
           ...decodedPayload
         });
 
+        const bNum = `BK-${Math.floor(1000 + Math.random() * 9000)}`;
         const newBooking = {
-          id: `BK-${Math.floor(1000 + Math.random() * 9000)}`,
+          id: bNum,
           petName: 'Bella',
           petType: 'Pomeranian',
           ownerName: 'Client Demo Guest',
@@ -247,7 +286,40 @@ export default function App() {
           pickupAddress: 'Sukhumvit Rd, Bangkok'
         };
         setBookings(prev => [newBooking, ...prev]);
-        showToast('💳 2C2P Payment Token created & verified!');
+
+        // Persist into Supabase database
+        try {
+          const { data: bRes } = await supabase.from('bookings').insert([{
+            booking_number: bNum,
+            temple_id: selectedTemple.id && selectedTemple.id.length > 10 ? selectedTemple.id : '11111111-1111-1111-1111-111111111101',
+            pet_name: 'Bella',
+            pet_type: 'Pomeranian',
+            date_of_passing: new Date().toISOString().split('T')[0],
+            ceremony_date: new Date().toISOString().split('T')[0],
+            service_type: 'Full Turnkey Ceremony',
+            subtotal_amount: Number(testAmount),
+            total_amount: Number(testAmount),
+            status: 'CONFIRMED'
+          }]).select();
+
+          if (bRes && bRes.length > 0) {
+            await supabase.from('payments').insert([{
+              booking_id: bRes[0].id,
+              invoice_no: invoiceNo,
+              amount: Number(testAmount),
+              currency: 'THB',
+              channel: 'CC',
+              payment_token: decodedPayload.paymentToken || 'token',
+              web_payment_url: decodedPayload.webPaymentUrl || '',
+              status: 'PAID',
+              paid_at: new Date().toISOString()
+            }]);
+          }
+        } catch (dbErr) {
+          console.warn('DB persist error:', dbErr);
+        }
+
+        showToast('💳 2C2P Payment Token created & stored in Supabase!');
       }
     } catch (err) {
       console.error(err);

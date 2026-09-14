@@ -19,6 +19,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { templesList, starsList as initialStarsList, guidanceArticles } from './data/templesData';
 import { create2C2PPaymentToken } from './services/paymentService';
+import { supabase } from './services/supabaseClient';
 
 const { width, height } = Dimensions.get('window');
 
@@ -128,15 +129,20 @@ export default function App() {
   };
 
   // Confirm Payment & Ascend Star to Constellation
-  const handleConfirmPaid = () => {
+  const handleConfirmPaid = async () => {
     const temple = getSelectedTemple();
+    const invoiceNumber = paymentResult?.invoiceNo || `INV-${Date.now()}`;
+    const totalCost = calculateTotal();
+    const starX = Math.floor(20 + Math.random() * 60);
+    const starY = Math.floor(20 + Math.random() * 55);
+
     const newStar = {
       id: `star-${Date.now()}`,
       name: petName || 'Beloved Angel',
       type: `${petType} (${petBreed || 'Companion'})`,
       years: '2026',
-      x: Math.floor(20 + Math.random() * 60),
-      y: Math.floor(20 + Math.random() * 55),
+      x: starX,
+      y: starY,
       color: '#FFD700',
       tribute: tributeMessage || 'Shining brightly forever in our hearts.',
       temple: temple.name,
@@ -148,12 +154,70 @@ export default function App() {
       petName,
       petType,
       templeName: temple.name,
-      amount: calculateTotal(),
-      invoiceNo: paymentResult?.invoiceNo || `INV-${Date.now()}`,
+      amount: totalCost,
+      invoiceNo: invoiceNumber,
       star: newStar
     });
-
     setPaymentSuccess(true);
+
+    // Save to live Supabase database
+    try {
+      const bNum = `BK-${Math.floor(1000 + Math.random() * 9000)}`;
+      const weightNum = parseFloat(petWeight) || 8;
+      const petSizeVal = weightNum > 30 ? 'EXTRA_LARGE' : (weightNum > 15 ? 'LARGE' : (weightNum >= 5 ? 'MEDIUM' : 'SMALL'));
+
+      const { data: bData } = await supabase.from('bookings').insert([{
+        booking_number: bNum,
+        temple_id: temple.id && temple.id.length > 10 ? temple.id : '11111111-1111-1111-1111-111111111101',
+        pet_name: petName || 'Beloved Companion',
+        pet_type: petType,
+        pet_breed: petBreed || 'Companion',
+        pet_weight_kg: weightNum,
+        pet_size: petSizeVal,
+        date_of_passing: new Date().toISOString().split('T')[0],
+        service_type: servicePackage,
+        ceremony_date: new Date().toISOString().split('T')[0],
+        ceremony_time: ceremonyTime.split(' ')[0] || '13:00',
+        include_pickup: includePickup,
+        pickup_address: pickupAddress,
+        subtotal_amount: totalCost - (includePickup ? temple.pricing.pickup : 0),
+        pickup_fee: includePickup ? temple.pricing.pickup : 0,
+        total_amount: totalCost,
+        status: 'CONFIRMED'
+      }]).select();
+
+      if (bData && bData.length > 0) {
+        const bookingId = bData[0].id;
+        // Insert Payment record
+        await supabase.from('payments').insert([{
+          booking_id: bookingId,
+          invoice_no: invoiceNumber,
+          amount: totalCost,
+          currency: 'THB',
+          channel: paymentChannel || 'CC',
+          payment_token: paymentResult?.paymentToken || '',
+          web_payment_url: paymentResult?.webPaymentUrl || '',
+          status: 'PAID',
+          paid_at: new Date().toISOString()
+        }]);
+
+        // Insert Memorial Star record
+        await supabase.from('memorials').insert([{
+          booking_id: bookingId,
+          pet_name: petName || 'Beloved Companion',
+          pet_type: `${petType} (${petBreed || 'Companion'})`,
+          years_lived: '2026',
+          tribute_message: tributeMessage || 'Shining brightly forever in our hearts.',
+          star_x: starX,
+          star_y: starY,
+          star_color: '#FFD700',
+          is_star_memorial: true,
+          likes_count: 1
+        }]);
+      }
+    } catch (dbErr) {
+      console.warn('Could not save to Supabase:', dbErr);
+    }
   };
 
   // Like a Memorial Star (Light a Candle / Lotus Offering)
