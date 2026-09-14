@@ -1,0 +1,64 @@
+@import "leaflet/dist/leaflet.css";
+
+:root {
+  --bg-space: #070b1a;
+  --bg-card: #0d1535;
+  --bg-card-hover: #141f4d;
+  --border-glass: rgba(255, 255, 255, 0.08);
+  --border-glass-bright: rgba(126, 184, 255, 0.3);
+  --text-primary: #ffffff;
+  --text-secondary: #b8c4e0;
+  --text-muted: #6f80a8;
+  --accent-gold: #ffd700;
+  --accent-blue: #7eb8ff;
+  --accent-purple: #7b2fbe;
+  --accent-cyan: #00d2ff;
+  --accent-green: #10b981;
+  --accent-red: #ef4444;
+  --font-main: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-space);
+  color: var(--text-primary);
+  font-family: var(--font-main);
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-image: 
+    radial-gradient(circle at 15% 15%, rgba(123, 47, 190, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 85% 85%, rgba(0, 210, 255, 0.1) 0%, transparent 45%);
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+input, select, textarea {
+  font-family: inherit;
+  outline: none;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(7, 11, 26, 0.5);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(126, 184, 255, 0.2);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(126, 184, 255, 0.4);
+}
