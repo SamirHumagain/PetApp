@@ -21,7 +21,7 @@ export default function GoogleMapView({
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
         <style>
-          html, body, #map { height: 100%; width: 100%; margin: 0; padding: 0; background: #E2E8F0; }
+          html, body, #map { height: 100%; width: 100%; margin: 0; padding: 0; background: #0F172A; }
           .temple-pin {
             background: #8B5CF6;
             color: #FFFFFF;
@@ -148,7 +148,18 @@ export default function GoogleMapView({
       <View style={styles.webContainer}>
         <iframe
           srcDoc={htmlContent}
-          style={{ width: '100%', height: '100%', border: 'none' }}
+          style={{
+            width: '100%',
+            height: '100%',
+            minHeight: '100%',
+            border: 'none',
+            display: 'block',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+          }}
           title="Google Map"
         />
       </View>
@@ -173,15 +184,26 @@ export default function GoogleMapView({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#E2E8F0',
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#0F172A',
   },
   webContainer: {
     flex: 1,
     width: '100%',
     height: '100%',
+    minHeight: '100%',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#0F172A',
   },
   webView: {
     flex: 1,
-    backgroundColor: '#E2E8F0',
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#0F172A',
   },
 });

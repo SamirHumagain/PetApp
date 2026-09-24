@@ -32,6 +32,7 @@ export default function MainHomeScreen({
       <ImageBackground
         source={ASSETS.bgMainPage}
         style={styles.fullBackground}
+        imageStyle={styles.bgImageStyle}
         resizeMode="cover"
       >
         <LinearGradient
@@ -175,25 +176,43 @@ export default function MainHomeScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    width: '100%',
+    maxWidth: '100%',
+    height: '100%',
     backgroundColor: THEME.colors.midnightBg,
+    overflow: 'hidden',
   },
   fullBackground: {
     flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  bgImageStyle: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
   gradientOverlay: {
     flex: 1,
+    width: '100%',
+    height: '100%',
     paddingTop: Platform.OS === 'ios' ? 44 : 20,
   },
   scrollFlex: {
     flex: 1,
+    width: '100%',
   },
   scrollContent: {
+    width: '100%',
+    maxWidth: 500,
+    alignSelf: 'center',
     paddingHorizontal: 20,
     paddingBottom: 24,
   },
   welcomeSection: {
     marginTop: 18,
     marginBottom: 20,
+    width: '100%',
   },
   welcomeHeading: {
     fontSize: 28,
@@ -212,10 +231,13 @@ const styles = StyleSheet.create({
   },
   actionCardsSection: {
     marginVertical: 8,
+    width: '100%',
   },
   quickExploreSection: {
     marginTop: 14,
     marginBottom: 8,
+    width: '100%',
+    overflow: 'hidden',
   },
   quickExploreTitle: {
     fontSize: 13,

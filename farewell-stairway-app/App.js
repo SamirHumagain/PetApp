@@ -181,24 +181,26 @@ export default function App() {
       {/* VIEW 1: HOME PAGE (WhatsApp Image 5 - Sanctuary Hub with Map, Form, Login) */}
       {currentView === 'HOME' && (
         <View style={styles.viewFlex}>
-          <MainHomeScreen
-            onOpenMenu={() => setIsDrawerOpen(true)}
-            onNavigateMap={() => {
-              setCurrentView('MAP');
-              setBottomTab('MAP');
-            }}
-            onNavigateForm={() => handleStartBookingTemple(null)}
-            onNavigateProfile={() => {
-              setCurrentView('PROFILE');
-              setBottomTab('PROFILE');
-            }}
-            onNavigateTemples={() => setCurrentView('TEMPLES')}
-            onNavigateStars={() => setIsStarDomeOpen(true)}
-            onNavigateGuides={() => setCurrentView('GUIDES')}
-            onNavigateJourney={() => setCurrentView('JOURNEY')}
-            currentUser={currentUser}
-            onOpenLogin={() => setIsAuthModalOpen(true)}
-          />
+          <View style={styles.screenBody}>
+            <MainHomeScreen
+              onOpenMenu={() => setIsDrawerOpen(true)}
+              onNavigateMap={() => {
+                setCurrentView('MAP');
+                setBottomTab('MAP');
+              }}
+              onNavigateForm={() => handleStartBookingTemple(null)}
+              onNavigateProfile={() => {
+                setCurrentView('PROFILE');
+                setBottomTab('PROFILE');
+              }}
+              onNavigateTemples={() => setCurrentView('TEMPLES')}
+              onNavigateStars={() => setIsStarDomeOpen(true)}
+              onNavigateGuides={() => setCurrentView('GUIDES')}
+              onNavigateJourney={() => setCurrentView('JOURNEY')}
+              currentUser={currentUser}
+              onOpenLogin={() => setIsAuthModalOpen(true)}
+            />
+          </View>
           <BottomNav currentTab={bottomTab} onSelectTab={handleSelectTab} />
         </View>
       )}
@@ -206,18 +208,20 @@ export default function App() {
       {/* VIEW 2: CELESTIAL JOURNEY & SOUL ASCENT (WhatsApp Image 1 - Dog/Cat soul ascends to become star) */}
       {currentView === 'JOURNEY' && (
         <View style={styles.viewFlex}>
-          <JourneyScrollScreen
-            onBeginJourney={() => {
-              setCurrentView('HOME');
-              setBottomTab('HOME');
-            }}
-            onBack={() => {
-              setCurrentView('HOME');
-              setBottomTab('HOME');
-            }}
-            onOpenMenu={() => setIsDrawerOpen(true)}
-            onSelectStar={(star) => setSelectedStar(star)}
-          />
+          <View style={styles.screenBody}>
+            <JourneyScrollScreen
+              onBeginJourney={() => {
+                setCurrentView('HOME');
+                setBottomTab('HOME');
+              }}
+              onBack={() => {
+                setCurrentView('HOME');
+                setBottomTab('HOME');
+              }}
+              onOpenMenu={() => setIsDrawerOpen(true)}
+              onSelectStar={(star) => setSelectedStar(star)}
+            />
+          </View>
           <BottomNav currentTab={bottomTab} onSelectTab={handleSelectTab} />
         </View>
       )}
@@ -225,14 +229,16 @@ export default function App() {
       {/* VIEW 3: PUBLIC INTERACTIVE MAP (WhatsApp Image 6) */}
       {currentView === 'MAP' && (
         <View style={styles.viewFlex}>
-          <MapScreen
-            onBack={() => {
-              setCurrentView('HOME');
-              setBottomTab('HOME');
-            }}
-            onInspectTemple={(temple) => setInspectingTemple(temple)}
-            onBookTemple={(temple) => handleStartBookingTemple(temple)}
-          />
+          <View style={styles.screenBody}>
+            <MapScreen
+              onBack={() => {
+                setCurrentView('HOME');
+                setBottomTab('HOME');
+              }}
+              onInspectTemple={(temple) => setInspectingTemple(temple)}
+              onBookTemple={(temple) => handleStartBookingTemple(temple)}
+            />
+          </View>
           <BottomNav currentTab={bottomTab} onSelectTab={handleSelectTab} />
         </View>
       )}
@@ -240,20 +246,22 @@ export default function App() {
       {/* VIEW 4: DIRECT FUNERAL & MEMORIAL FORM (WhatsApp Image 7 - Full 7-Step Funnel) */}
       {currentView === 'FORM' && (
         <View style={styles.viewFlex}>
-          <FuneralFormScreen
-            onBack={() => {
-              setCurrentView('HOME');
-              setBottomTab('HOME');
-            }}
-            onSubmitSuccess={handleFormSubmitSuccess}
-            initialTemple={bookingTemple}
-            currentUser={currentUser}
-            onRequestLogin={(afterLoginCb) => {
-              setPendingPostAuthAction(() => afterLoginCb);
-              setIsAuthModalOpen(true);
-            }}
-            onOpenStarDome={() => setIsStarDomeOpen(true)}
-          />
+          <View style={styles.screenBody}>
+            <FuneralFormScreen
+              onBack={() => {
+                setCurrentView('HOME');
+                setBottomTab('HOME');
+              }}
+              onSubmitSuccess={handleFormSubmitSuccess}
+              initialTemple={bookingTemple}
+              currentUser={currentUser}
+              onRequestLogin={(afterLoginCb) => {
+                setPendingPostAuthAction(() => afterLoginCb);
+                setIsAuthModalOpen(true);
+              }}
+              onOpenStarDome={() => setIsStarDomeOpen(true)}
+            />
+          </View>
           <BottomNav currentTab={bottomTab} onSelectTab={handleSelectTab} />
         </View>
       )}
@@ -261,16 +269,18 @@ export default function App() {
       {/* VIEW 5: JOURNEY TRACKING & PROFILE */}
       {currentView === 'PROFILE' && (
         <View style={styles.viewFlex}>
-          <ProfileScreen
-            onBack={() => {
-              setCurrentView('HOME');
-              setBottomTab('HOME');
-            }}
-            userTributes={userTributes}
-            activeBooking={activeBooking}
-            onNavigateForm={() => handleStartBookingTemple(null)}
-            onNavigateStars={() => setIsStarDomeOpen(true)}
-          />
+          <View style={styles.screenBody}>
+            <ProfileScreen
+              onBack={() => {
+                setCurrentView('HOME');
+                setBottomTab('HOME');
+              }}
+              userTributes={userTributes}
+              activeBooking={activeBooking}
+              onNavigateForm={() => handleStartBookingTemple(null)}
+              onNavigateStars={() => setIsStarDomeOpen(true)}
+            />
+          </View>
           <BottomNav currentTab={bottomTab} onSelectTab={handleSelectTab} />
         </View>
       )}
@@ -278,17 +288,19 @@ export default function App() {
       {/* VIEW 6: TEMPLE DIRECTORY */}
       {currentView === 'TEMPLES' && (
         <View style={styles.viewFlex}>
-          <TempleDirectoryScreen
-            onBack={() => {
-              setCurrentView('HOME');
-              setBottomTab('HOME');
-            }}
-            onOpenMap={() => {
-              setCurrentView('MAP');
-              setBottomTab('MAP');
-            }}
-            onSelectTemple={(temple) => setInspectingTemple(temple)}
-          />
+          <View style={styles.screenBody}>
+            <TempleDirectoryScreen
+              onBack={() => {
+                setCurrentView('HOME');
+                setBottomTab('HOME');
+              }}
+              onOpenMap={() => {
+                setCurrentView('MAP');
+                setBottomTab('MAP');
+              }}
+              onSelectTemple={(temple) => setInspectingTemple(temple)}
+            />
+          </View>
           <BottomNav currentTab={bottomTab} onSelectTab={handleSelectTab} />
         </View>
       )}
@@ -296,13 +308,15 @@ export default function App() {
       {/* VIEW 7: CARE & CREMATION GUIDES */}
       {currentView === 'GUIDES' && (
         <View style={styles.viewFlex}>
-          <CareGuidesScreen
-            onBack={() => {
-              setCurrentView('HOME');
-              setBottomTab('HOME');
-            }}
-            onOpenTempleList={() => setCurrentView('TEMPLES')}
-          />
+          <View style={styles.screenBody}>
+            <CareGuidesScreen
+              onBack={() => {
+                setCurrentView('HOME');
+                setBottomTab('HOME');
+              }}
+              onOpenTempleList={() => setCurrentView('TEMPLES')}
+            />
+          </View>
           <BottomNav currentTab={bottomTab} onSelectTab={handleSelectTab} />
         </View>
       )}
@@ -383,10 +397,23 @@ export default function App() {
 const styles = StyleSheet.create({
   rootContainer: {
     flex: 1,
+    width: '100%',
+    height: '100%',
     backgroundColor: '#070C1E',
   },
   viewFlex: {
     flex: 1,
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+  },
+  screenBody: {
+    flex: 1,
+    width: '100%',
+    minHeight: 0,
+    overflow: 'hidden',
   },
   starModalBackdrop: {
     flex: 1,

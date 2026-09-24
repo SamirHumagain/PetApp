@@ -18,7 +18,7 @@
   "scripts": {
     "start": "expo start -c",
     "dev": "expo start -c",
-    "build": "expo export -p web",
+    "build": "expo export -p web && node scripts/postbuild.js",
     "tunnel": "expo start --tunnel -c",
     "android": "expo start --android",
     "ios": "expo start --ios",

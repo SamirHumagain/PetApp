@@ -68,17 +68,23 @@ export default function BottomNav({ currentTab, onSelectTab }) {
 
 const styles = StyleSheet.create({
   navContainer: {
-    backgroundColor: 'rgba(7, 12, 30, 0.95)',
+    width: '100%',
+    flexShrink: 0,
+    backgroundColor: 'rgba(7, 12, 30, 0.98)',
     borderTopWidth: 1,
     borderTopColor: 'rgba(126, 184, 255, 0.15)',
     paddingBottom: Platform.OS === 'ios' ? 24 : 10,
     paddingTop: 8,
+    zIndex: 100,
   },
   navBlurOverlay: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
     paddingHorizontal: 12,
+    width: '100%',
+    maxWidth: 500,
+    alignSelf: 'center',
   },
   tabButton: {
     flex: 1,

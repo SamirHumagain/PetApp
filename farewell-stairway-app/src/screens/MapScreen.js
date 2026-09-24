@@ -4,7 +4,7 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Dimensions,
+  ScrollView,
   Platform,
   Alert,
   Linking,
@@ -68,30 +68,36 @@ export default function MapScreen({
         </TouchableOpacity>
       </View>
 
-      {/* Filter Row: Temples & Drivers */}
-      <View style={styles.filterRow}>
-        {[
-          { key: 'ALL', label: 'All Markers (8)' },
-          { key: 'TEMPLES', label: '🛕 Temples (3)' },
-          { key: 'DRIVERS', label: '🚗 Live Drivers (5)' },
-        ].map(item => (
-          <TouchableOpacity
-            key={item.key}
-            style={[styles.filterChip, filterMode === item.key && styles.activeFilterChip]}
-            onPress={() => setFilterMode(item.key)}
-          >
-            <Text style={[styles.filterChipText, filterMode === item.key && styles.activeFilterChipText]}>
-              {item.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-
-        <TouchableOpacity 
-          style={styles.openExternalGMapBtn}
-          onPress={handleOpenGoogleMapsApp}
+      {/* Filter Row: Horizontally scrollable chips so it never causes viewport zooming */}
+      <View style={styles.filterRowWrapper}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterScrollContent}
         >
-          <Text style={styles.openExternalGMapText}>Open App ↗</Text>
-        </TouchableOpacity>
+          {[
+            { key: 'ALL', label: 'All Markers (8)' },
+            { key: 'TEMPLES', label: '🛕 Temples (3)' },
+            { key: 'DRIVERS', label: '🚗 Live Drivers (5)' },
+          ].map(item => (
+            <TouchableOpacity
+              key={item.key}
+              style={[styles.filterChip, filterMode === item.key && styles.activeFilterChip]}
+              onPress={() => setFilterMode(item.key)}
+            >
+              <Text style={[styles.filterChipText, filterMode === item.key && styles.activeFilterChipText]}>
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+
+          <TouchableOpacity 
+            style={styles.openExternalGMapBtn}
+            onPress={handleOpenGoogleMapsApp}
+          >
+            <Text style={styles.openExternalGMapText}>Open App ↗</Text>
+          </TouchableOpacity>
+        </ScrollView>
       </View>
 
       {/* REAL INTERACTIVE GOOGLE MAP COMPONENT */}
@@ -107,18 +113,18 @@ export default function MapScreen({
           onSelectDriver={(d) => setSelectedDriver(d)}
           center={{ lat: 13.7050, lng: 100.5200 }}
         />
-      </View>
 
-      {/* Bottom Sheet Elements (Legend + Temple Card) matching Image 6 */}
-      <View style={styles.bottomSheetContainer}>
-        <LegendBar />
+        {/* Bottom Sheet Elements (Legend + Temple Card) overlaid on the map */}
+        <View style={styles.bottomSheetContainer}>
+          <LegendBar />
 
-        {selectedTemple && (
-          <TemplePreviewCard 
-            temple={selectedTemple}
-            onViewDetails={(t) => onInspectTemple(t)}
-          />
-        )}
+          {selectedTemple && (
+            <TemplePreviewCard 
+              temple={selectedTemple}
+              onViewDetails={(t) => onInspectTemple(t)}
+            />
+          )}
+        </View>
       </View>
     </View>
   );
@@ -127,9 +133,13 @@ export default function MapScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    width: '100%',
+    height: '100%',
     backgroundColor: '#0F172A',
+    overflow: 'hidden',
   },
   topBar: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -178,25 +188,29 @@ const styles = StyleSheet.create({
   gpsTargetIcon: {
     fontSize: 18,
   },
-  filterRow: {
+  filterRowWrapper: {
+    width: '100%',
+    backgroundColor: '#0F172A',
+    paddingBottom: 10,
+    overflow: 'hidden',
+  },
+  filterScrollContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
     paddingHorizontal: 14,
-    paddingBottom: 10,
     gap: 8,
   },
   filterChip: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 14,
   },
   activeFilterChip: {
     backgroundColor: '#3B82F6',
   },
   filterChipText: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#94A3B8',
     fontWeight: '600',
   },
@@ -204,23 +218,26 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   openExternalGMapBtn: {
-    marginLeft: 'auto',
     backgroundColor: 'rgba(16, 185, 129, 0.2)',
     borderWidth: 1,
     borderColor: '#10B981',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 10,
+    marginLeft: 4,
   },
   openExternalGMapText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     color: '#34D399',
   },
   mapCanvasWrapper: {
     flex: 1,
+    width: '100%',
     position: 'relative',
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#0F172A',
+    minHeight: 0,
+    overflow: 'hidden',
   },
   bottomSheetContainer: {
     position: 'absolute',
@@ -228,5 +245,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 30,
+    paddingBottom: 4,
   },
 });

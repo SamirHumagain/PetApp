@@ -181,11 +181,12 @@ export default function JourneyScrollScreen({
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
         bounces={true}
+        style={{ flex: 1, width: '100%' }}
+        contentContainerStyle={{ height: CANVAS_HEIGHT, width: '100%', overflow: 'hidden' }}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
           { useNativeDriver: false }
         )}
-        contentContainerStyle={{ height: CANVAS_HEIGHT }}
       >
         {/* LAYER 1: EARTH DUSK & MOUNTAINS (Initial Viewport) */}
         <ImageBackground 
@@ -383,7 +384,10 @@ export default function JourneyScrollScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    width: '100%',
+    height: '100%',
     backgroundColor: THEME.colors.midnightBg,
+    overflow: 'hidden',
   },
   fixedHeader: {
     position: 'absolute',
