@@ -208,21 +208,18 @@ export default function App() {
       {/* VIEW 2: CELESTIAL JOURNEY & SOUL ASCENT (WhatsApp Image 1 - Dog/Cat soul ascends to become star) */}
       {currentView === 'JOURNEY' && (
         <View style={styles.viewFlex}>
-          <View style={styles.screenBody}>
-            <JourneyScrollScreen
-              onBeginJourney={() => {
-                setCurrentView('HOME');
-                setBottomTab('HOME');
-              }}
-              onBack={() => {
-                setCurrentView('HOME');
-                setBottomTab('HOME');
-              }}
-              onOpenMenu={() => setIsDrawerOpen(true)}
-              onSelectStar={(star) => setSelectedStar(star)}
-            />
-          </View>
-          <BottomNav currentTab={bottomTab} onSelectTab={handleSelectTab} />
+          <JourneyScrollScreen
+            onBeginJourney={() => {
+              setCurrentView('HOME');
+              setBottomTab('HOME');
+            }}
+            onBack={() => {
+              setCurrentView('HOME');
+              setBottomTab('HOME');
+            }}
+            onOpenMenu={() => setIsDrawerOpen(true)}
+            onSelectStar={(star) => setSelectedStar(star)}
+          />
         </View>
       )}
 

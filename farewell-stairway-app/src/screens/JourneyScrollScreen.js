@@ -1,24 +1,85 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   View,
   Text,
   Image,
-  ImageBackground,
   TouchableOpacity,
   Dimensions,
   Animated,
   Platform,
+  PanResponder,
+  Easing,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ASSETS } from '../constants/assets';
 import { THEME } from '../constants/theme';
 import PillButton from '../components/PillButton';
-import { IconStar } from '../components/Icons';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const CANVAS_HEIGHT = Math.round(SCREEN_HEIGHT * 2.6);
-const MAX_SCROLL = CANVAS_HEIGHT - SCREEN_HEIGHT;
+
+// Curated constellation memorial stars
+const MEMORIAL_STARS = [
+  { id: '1', name: 'Buddy', type: 'Golden Retriever', tribute: 'Run free across the endless golden stars.', top: '16%', left: '14%' },
+  { id: '2', name: 'Luna', type: 'Persian Cat', tribute: 'Our quiet moonbeam warming the sky.', top: '14%', right: '14%' },
+  { id: '3', name: 'Max', type: 'French Bulldog', tribute: 'Little body, biggest heart in the universe.', top: '28%', left: '20%' },
+  { id: '4', name: 'Bella', type: 'Pomeranian', tribute: 'The sweetest little cloud of happiness.', top: '32%', right: '16%' },
+  { id: '5', name: 'Charlie', type: 'Beagle', tribute: 'Always following adventure in the cosmos.', top: '44%', left: '36%' },
+  { id: '6', name: 'Milo', type: 'Scottish Fold', tribute: 'Rest gently among the stars.', top: '50%', right: '20%' },
+  { id: '7', name: 'Daisy', type: 'Labrador', tribute: 'Pure sunshine forever.', top: '60%', left: '14%' },
+  { id: '8', name: 'Rocky', type: 'Husky', tribute: 'Howling with cosmic freedom.', top: '64%', right: '16%' },
+  { id: '9', name: 'Coco', type: 'Poodle', tribute: 'Forever shining in our hearts.', top: '72%', left: '24%' },
+  { id: '10', name: 'Lucy', type: 'Corgi', tribute: 'Little paws dancing among the stars.', top: '74%', right: '26%' },
+];
+
+/**
+ * Memorial star component:
+ * Small glowing star icon always visible in the sky.
+ * Plain rounded dark pill with NAME ONLY appears on hover / tap.
+ * Clean subtle dark background, NO neon yellow glow.
+ */
+function MemorialStar({ star, onSelectStar }) {
+  const [isRevealed, setIsRevealed] = useState(false);
+
+  return (
+    <View 
+      style={[
+        styles.starPlacement, 
+        { 
+          top: star.top, 
+          left: star.left, 
+          right: star.right 
+        }
+      ]}
+      onMouseEnter={() => setIsRevealed(true)}
+      onMouseLeave={() => setIsRevealed(false)}
+    >
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={() => {
+          if (!isRevealed) {
+            setIsRevealed(true);
+          } else {
+            onSelectStar && onSelectStar(star);
+          }
+        }}
+        style={styles.starRow}
+      >
+        <Text style={styles.starGlyphIcon}>✦</Text>
+
+        {isRevealed && (
+          <TouchableOpacity 
+            activeOpacity={0.8}
+            onPress={() => onSelectStar && onSelectStar(star)}
+            style={styles.namePill}
+          >
+            <Text style={styles.namePillText}>{star.name}</Text>
+          </TouchableOpacity>
+        )}
+      </TouchableOpacity>
+    </View>
+  );
+}
 
 export default function JourneyScrollScreen({ 
   onBeginJourney, 
@@ -26,31 +87,20 @@ export default function JourneyScrollScreen({
   onSelectStar,
   onBack 
 }) {
-  const [petType, setPetType] = useState('DOG'); // 'DOG' | 'CAT'
-  const scrollY = useRef(new Animated.Value(0)).current;
-  const scrollRef = useRef(null);
+  // Journey progress from 0 (Earth Landing) to 1 (Fully Scrolled Universe)
+  const animProgress = useRef(new Animated.Value(0)).current;
+  const currentProgressRef = useRef(0);
+  const [displayProgress, setDisplayProgress] = useState(0);
 
-  // Floating gentle soul breathing hover animation
-  const hoverAnim = useRef(new Animated.Value(0)).current;
-  // Subtle pulse animation for scroll prompt
+  // Transition out guard when transitioning to home
+  const isNavigatingHomeRef = useRef(false);
+  const screenFadeAnim = useRef(new Animated.Value(1)).current;
+
+  // Idle pulse animations for prompt chevrons
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const hoverAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(hoverAnim, {
-          toValue: -8,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(hoverAnim, {
-          toValue: 0,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
@@ -65,319 +115,464 @@ export default function JourneyScrollScreen({
         }),
       ])
     ).start();
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(hoverAnim, {
+          toValue: -6,
+          duration: 2200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(hoverAnim, {
+          toValue: 0,
+          duration: 2200,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
   }, []);
 
-  // 1. Initial Sitting Spirit: perfect and resting peacefully on Earth
-  const sittingSoulOpacity = scrollY.interpolate({
-    inputRange: [0, MAX_SCROLL * 0.07, MAX_SCROLL * 0.15],
-    outputRange: [1, 0.6, 0],
+  // Update progress helper
+  const updateProgress = useCallback((newVal) => {
+    const clamped = Math.max(0, Math.min(1, newVal));
+    currentProgressRef.current = clamped;
+    animProgress.setValue(clamped);
+    setDisplayProgress(clamped);
+  }, [animProgress]);
+
+  // Transition smoothly to Home page
+  const triggerNavigateHome = useCallback(() => {
+    if (isNavigatingHomeRef.current) return;
+    isNavigatingHomeRef.current = true;
+
+    Animated.timing(screenFadeAnim, {
+      toValue: 0,
+      duration: 450,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start(() => {
+      onBeginJourney && onBeginJourney();
+    });
+  }, [screenFadeAnim, onBeginJourney]);
+
+  // Smoothly ascend upwards into the stars upon clicking "Scroll Up" or CTA
+  const handleAscendSmooth = useCallback(() => {
+    Animated.timing(animProgress, {
+      toValue: 1,
+      duration: 1800,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start(() => {
+      currentProgressRef.current = 1;
+      setDisplayProgress(1);
+    });
+  }, [animProgress]);
+
+  // Begin journey button click: smoothly ascends and transitions to home
+  const handleBeginJourneyClick = useCallback(() => {
+    Animated.timing(animProgress, {
+      toValue: 1,
+      duration: 1600,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start(() => {
+      currentProgressRef.current = 1;
+      setDisplayProgress(1);
+      setTimeout(() => {
+        triggerNavigateHome();
+      }, 500);
+    });
+  }, [animProgress, triggerNavigateHome]);
+
+  // Wheel handling for Web:
+  // deltaY < 0 = SCROLL UP => progress increases upward into the stars!
+  // deltaY > 0 = SCROLL DOWN => if at Universe view (progress >= 0.90), navigates to Home!
+  const handleWheel = useCallback((e) => {
+    if (isNavigatingHomeRef.current) return;
+    const delta = e.deltaY;
+
+    if (delta < 0) {
+      // Scrolling UP: ascends into the stars
+      const step = Math.abs(delta) * 0.0022;
+      updateProgress(currentProgressRef.current + step);
+    } else if (delta > 0) {
+      // Scrolling DOWN
+      if (currentProgressRef.current >= 0.90) {
+        // Reached fully-scrolled universe view and continues scrolling down -> Navigate to Home!
+        triggerNavigateHome();
+      } else {
+        const step = delta * 0.0022;
+        updateProgress(currentProgressRef.current - step);
+      }
+    }
+  }, [updateProgress, triggerNavigateHome]);
+
+  // Touch / PanResponder handling for Mobile & Gestures:
+  // REVERSED SCROLL TRIGGER LOGIC:
+  // On mobile touch screens, users drag DOWN (dy > 0) to "scroll up" towards content above!
+  // So dragging DOWN (dy > 0) increases progress towards the sky and stars!
+  // Dragging UP (dy < 0) scrolls DOWN towards Earth, or when at universe view, navigates to Home!
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dy) > 4,
+      onPanResponderMove: (_, gestureState) => {
+        if (isNavigatingHomeRef.current) return;
+        const dy = gestureState.dy;
+
+        // dy > 0: Dragging DOWN (mobile "scroll up" gesture to see content above) -> Ascend into the stars!
+        if (dy > 6) {
+          const step = Math.abs(dy) * 0.0006;
+          updateProgress(currentProgressRef.current + step);
+        } else if (dy < -6) {
+          // dy < 0: Dragging UP (mobile "scroll down" gesture)
+          if (currentProgressRef.current >= 0.88) {
+            // At universe view and continues scrolling down -> Navigate to Home!
+            triggerNavigateHome();
+          } else {
+            const step = Math.abs(dy) * 0.0006;
+            updateProgress(currentProgressRef.current - step);
+          }
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (isNavigatingHomeRef.current) return;
+        if (gestureState.vy > 0.35) {
+          // Fast flick down -> ascend completely to universe
+          handleAscendSmooth();
+        } else if (gestureState.vy < -0.35 && currentProgressRef.current >= 0.85) {
+          // Fast flick up at universe -> navigate home
+          triggerNavigateHome();
+        }
+      },
+    })
+  ).current;
+
+  // Keyboard navigation for desktop accessibility
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const handleKeyDown = (e) => {
+        if (isNavigatingHomeRef.current) return;
+        if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+          // Scroll up into stars
+          updateProgress(currentProgressRef.current + 0.2);
+        } else if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
+          if (currentProgressRef.current >= 0.90) {
+            triggerNavigateHome();
+          } else {
+            updateProgress(currentProgressRef.current - 0.2);
+          }
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [updateProgress, triggerNavigateHome]);
+
+  // ================= ANIMATED INTERPOLATIONS =================
+  // 1. Earth Dusk Viewport (0.0 to 0.45): fades out and recedes downward as you ascend
+  const earthOpacity = animProgress.interpolate({
+    inputRange: [0, 0.45, 0.7],
+    outputRange: [1, 0.5, 0],
     extrapolate: 'clamp',
   });
 
-  // 2. Flying Spirit (dog_space_transparent.png): takes flight upon scroll, flies through cosmos, transforms into star
-  const flyingSoulOpacity = scrollY.interpolate({
-    inputRange: [0, MAX_SCROLL * 0.07, MAX_SCROLL * 0.82, MAX_SCROLL * 0.94],
-    outputRange: [0, 1, 1, 0],
+  const earthTranslateY = animProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, SCREEN_HEIGHT * 0.25],
     extrapolate: 'clamp',
   });
 
-  // Fluid interpolation keeps soul perfectly centered in viewport as user ascends
-  const soulCanvasTranslateY = scrollY.interpolate({
-    inputRange: [0, MAX_SCROLL],
-    outputRange: [0, SCREEN_HEIGHT * 1.58],
+  // 2. Orbital Horizon Layer (0.15 to 0.75): curve of Earth from space
+  const horizonOpacity = animProgress.interpolate({
+    inputRange: [0, 0.2, 0.5, 0.8],
+    outputRange: [0, 0.4, 0.85, 0],
     extrapolate: 'clamp',
   });
 
-  const soulScale = scrollY.interpolate({
-    inputRange: [0, MAX_SCROLL * 0.5, MAX_SCROLL],
-    outputRange: [1, 0.88, 0.4],
+  // 3. Deep Cosmic Universe Layer (0.35 to 1.0): swirling spiral galaxy
+  const galaxyOpacity = animProgress.interpolate({
+    inputRange: [0.15, 0.55, 1],
+    outputRange: [0, 0.75, 1],
     extrapolate: 'clamp',
   });
 
-  const starBurstOpacity = scrollY.interpolate({
-    inputRange: [MAX_SCROLL * 0.82, MAX_SCROLL],
-    outputRange: [0, 1],
+  const galaxyScale = animProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1.1, 1],
     extrapolate: 'clamp',
   });
 
-  const starBurstScale = scrollY.interpolate({
-    inputRange: [MAX_SCROLL * 0.82, MAX_SCROLL],
-    outputRange: [0.4, 1.25],
-    extrapolate: 'clamp',
-  });
-
-  // Prompt smoothly disappears as user begins ascending
-  const scrollPromptOpacity = scrollY.interpolate({
-    inputRange: [0, MAX_SCROLL * 0.12],
+  // 4. Hero Title & CTA Button on Earth: fades out quickly as user ascends
+  const earthHeroOpacity = animProgress.interpolate({
+    inputRange: [0, 0.18],
     outputRange: [1, 0],
     extrapolate: 'clamp',
   });
 
-  const handleAscendSmooth = () => {
-    scrollRef.current?.scrollTo({
-      y: MAX_SCROLL,
-      animated: true,
-    });
-  };
+  // 5. "Scroll Up" Prompt indicator: fades out as ascent begins
+  const scrollUpPromptOpacity = animProgress.interpolate({
+    inputRange: [0, 0.14],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
 
-  const handleScrollToBottom = () => {
-    scrollRef.current?.scrollTo({
-      y: 0,
-      animated: true,
-    });
-  };
+  // 6. Sitting dog resting on grassy mound
+  const sittingSoulOpacity = animProgress.interpolate({
+    inputRange: [0, 0.1, 0.2],
+    outputRange: [1, 0.6, 0],
+    extrapolate: 'clamp',
+  });
+
+  // 7. Ascending flying dog soul taking flight into the stars
+  const flyingSoulOpacity = animProgress.interpolate({
+    inputRange: [0, 0.08, 0.78, 0.92],
+    outputRange: [0, 1, 1, 0],
+    extrapolate: 'clamp',
+  });
+
+  const flyingSoulTranslateY = animProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -SCREEN_HEIGHT * 0.38],
+    extrapolate: 'clamp',
+  });
+
+  const flyingSoulScale = animProgress.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [1, 0.82, 0.35],
+    extrapolate: 'clamp',
+  });
+
+  // 8. Constellation Memorial Stars: appear gently in the sky
+  const starsGroupOpacity = animProgress.interpolate({
+    inputRange: [0.12, 0.45, 1],
+    outputRange: [0, 0.85, 1],
+    extrapolate: 'clamp',
+  });
+
+  // 9. Fully-scrolled Universe tagline & down chevron
+  const universeElementsOpacity = animProgress.interpolate({
+    inputRange: [0.72, 0.95, 1],
+    outputRange: [0, 0.7, 1],
+    extrapolate: 'clamp',
+  });
 
   return (
-    <View style={styles.container}>
-      {/* FIXED TOP HEADER (MATCHING EXACT WHATSAPP IMAGE 1 - NO SOLID WHITE BOX) */}
-      <View style={styles.fixedHeader}>
-        <View style={styles.headerRow}>
-          {/* Left: Pet Soul Toggle (Dog / Cat) and optional Back button */}
-          <View style={styles.headerLeftCol}>
-            {onBack && (
-              <TouchableOpacity 
-                style={styles.backCircleBtn}
-                onPress={onBack}
-                activeOpacity={0.7}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              >
-                <Text style={styles.backArrowText}>←</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity 
-              style={styles.petToggleBadge} 
-              activeOpacity={0.8}
-              onPress={() => setPetType(prev => prev === 'DOG' ? 'CAT' : 'DOG')}
-            >
-              <Text style={styles.petToggleText}>{petType === 'DOG' ? '🐕' : '🐈'}</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Center: Brand Title + Subtitle (clean typography matching mockup 1) */}
-          <View style={styles.headerCenterCol}>
-            <Text style={styles.centerTitle}>Farewell to Stairway</Text>
-            <Text style={styles.centerSubtitle}>Pet Funeral & Memorial</Text>
-          </View>
-
-          {/* Right: Hamburger Menu */}
+    <Animated.View 
+      style={[styles.container, { opacity: screenFadeAnim }]}
+      onWheel={Platform.OS === 'web' ? handleWheel : undefined}
+      {...panResponder.panHandlers}
+    >
+      {/* ================= FIXED TOP HEADER ================= */}
+      {/* Standalone logo centered at very top, centered title below, centered subtitle below */}
+      <View style={styles.fixedHeader} pointerEvents="box-none">
+        {/* Optional back button if provided */}
+        {onBack && (
           <TouchableOpacity 
-            style={styles.menuCircleBtn}
-            onPress={onOpenMenu}
+            style={styles.backCircleBtn}
+            onPress={onBack}
             activeOpacity={0.7}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <View style={styles.hamburgerLines}>
-              <View style={styles.hamburgerLine} />
-              <View style={styles.hamburgerLine} />
-              <View style={styles.hamburgerLine} />
-            </View>
+            <Text style={styles.backArrowText}>←</Text>
           </TouchableOpacity>
+        )}
+
+        {/* Centered Brand Stack */}
+        <View style={styles.headerCenterColumn}>
+          {/* Standalone logo icon - paw with shooting star flourish */}
+          <Image 
+            source={ASSETS.logoClean} 
+            style={styles.standaloneLogoIcon} 
+            resizeMode="contain" 
+          />
+          {/* Site name centered - classic elegant serif */}
+          <Text style={styles.headerSiteName}>Farewell to Stairway</Text>
+          {/* Subtitle centered - lighter weight, refined serif */}
+          <Text style={styles.headerSubtitle}>Pet Funeral & Memorial</Text>
         </View>
+
+        {/* Hamburger Menu on top right */}
+        <TouchableOpacity 
+          style={styles.menuCircleBtn}
+          onPress={onOpenMenu}
+          activeOpacity={0.7}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <View style={styles.hamburgerLines}>
+            <View style={styles.hamburgerLine} />
+            <View style={styles.hamburgerLine} />
+            <View style={styles.hamburgerLine} />
+          </View>
+        </TouchableOpacity>
       </View>
 
-      {/* CONTINUOUS SINGLE CANVAS SCROLLVIEW (0 = EARTH, MAX = COSMOS) */}
-      <Animated.ScrollView
-        ref={scrollRef}
-        showsVerticalScrollIndicator={false}
-        scrollEventThrottle={16}
-        bounces={true}
-        style={{ flex: 1, width: '100%' }}
-        contentContainerStyle={{ height: CANVAS_HEIGHT, width: '100%', overflow: 'hidden' }}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false }
-        )}
+      {/* ================= BACKGROUND COSMIC LAYERS ================= */}
+      {/* LAYER 3: DEEP COSMIC GALAXY (Universe Climax) */}
+      <Animated.Image 
+        source={ASSETS.bgFullGalaxy} 
+        style={[
+          styles.fullScreenBg, 
+          { 
+            opacity: galaxyOpacity,
+            transform: [{ scale: galaxyScale }]
+          }
+        ]}
+        resizeMode="cover"
+      />
+
+      {/* LAYER 2: EARTH ORBITAL HORIZON (Middle Ascent Transition) */}
+      <Animated.Image 
+        source={ASSETS.bgEarthHorizon} 
+        style={[
+          styles.fullScreenBg, 
+          { opacity: horizonOpacity }
+        ]}
+        resizeMode="cover"
+      />
+
+      {/* LAYER 1: EARTH NIGHT & MOUNTAINS (Initial Resting Ground) */}
+      <Animated.Image 
+        source={ASSETS.bgEarthNight} 
+        style={[
+          styles.fullScreenBg, 
+          { 
+            opacity: earthOpacity,
+            transform: [{ translateY: earthTranslateY }]
+          }
+        ]}
+        resizeMode="cover"
+      />
+
+      {/* Soft gradient overlay on Earth for text contrast */}
+      <Animated.View 
+        style={[styles.fullScreenBg, { opacity: earthOpacity }]} 
+        pointerEvents="none"
       >
-        {/* LAYER 1: EARTH DUSK & MOUNTAINS (Initial Viewport) */}
-        <ImageBackground 
-          source={ASSETS.bgEarthNight} 
-          style={styles.canvasSectionEarth}
-          resizeMode="cover"
-        >
-          <LinearGradient
-            colors={['rgba(7, 12, 30, 0.1)', 'rgba(7, 12, 30, 0.45)', 'rgba(7, 12, 30, 0.95)']}
-            style={styles.earthFadeGradient}
-          />
-        </ImageBackground>
+        <LinearGradient
+          colors={['rgba(7, 12, 30, 0.1)', 'rgba(7, 12, 30, 0.35)', 'rgba(7, 12, 30, 0.85)']}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </Animated.View>
 
-        {/* LAYER 2: DEEP COSMIC GALAXY & NEBULA (Middle image removed) */}
-        <ImageBackground 
-          source={ASSETS.bgFullGalaxy} 
-          style={styles.canvasSectionGalaxy}
-          resizeMode="cover"
-        >
-          <LinearGradient
-            colors={['rgba(7, 12, 30, 0.95)', 'rgba(7, 12, 30, 0.25)', 'rgba(7, 12, 30, 0.90)']}
-            style={styles.earthFadeGradient}
-          />
-        </ImageBackground>
+      {/* ================= SECTION 1: INITIAL EARTH VIEWPORT CONTENT ================= */}
+      <Animated.View 
+        style={[
+          styles.earthHeroCenterBox, 
+          { opacity: earthHeroOpacity }
+        ]}
+        pointerEvents={displayProgress < 0.2 ? 'auto' : 'none'}
+      >
+        <Text style={styles.poeticTaglineText}>
+          Every goodbye is a{"\n"}journey toward the stars.
+        </Text>
+        
+        <PillButton 
+          title="Begin the Journey →"
+          onPress={handleBeginJourneyClick}
+          style={styles.ctaPill}
+        />
+      </Animated.View>
 
-        {/* ================= SECTION 1: INITIAL EARTH VIEWPORT (0 to SCREEN_HEIGHT) ================= */}
-        {/* EXACT HERO TEXT & BUTTON MATCHING WHATSAPP IMAGE 1 */}
-        <View style={styles.earthHeroCenterBox}>
-          <Text style={styles.poeticText}>
-            Every goodbye is a{"\n"}journey toward the stars.
-          </Text>
-          
-          <PillButton 
-            title="Begin the Journey →"
-            onPress={onBeginJourney}
-            style={styles.ctaPill}
-          />
-        </View>
-
-        {/* PROMPT: SCROLL UP (AT BOTTOM OF EARTH VIEWPORT - FADES AS USER ASCENDS) */}
-        <Animated.View style={[styles.scrollUpPromptBox, { opacity: scrollPromptOpacity }]}>
-          <TouchableOpacity 
-            activeOpacity={0.8}
-            onPress={handleAscendSmooth}
-          >
-            <Animated.View style={{ transform: [{ scale: pulseAnim }], alignItems: 'center' }}>
-              <Text style={styles.chevronUp}>⌃</Text>
-              <Text style={styles.scrollUpPromptText}>Scroll Up</Text>
-            </Animated.View>
-          </TouchableOpacity>
-        </Animated.View>
-
-        {/* ================= SECTION 2: CONSTELLATION MEMORIAL STARS ================= */}
+      {/* SCROLL UP PROMPT INDICATOR (At bottom of Earth viewport) */}
+      <Animated.View 
+        style={[
+          styles.scrollUpPromptBox, 
+          { opacity: scrollUpPromptOpacity }
+        ]}
+        pointerEvents={displayProgress < 0.2 ? 'auto' : 'none'}
+      >
         <TouchableOpacity 
-          style={[styles.starBadge, { top: SCREEN_HEIGHT * 0.98, left: '16%' }]}
-          onPress={() => onSelectStar({ name: 'Buddy', type: 'Golden Retriever', tribute: 'Run free across the endless golden stars.' })}
+          activeOpacity={0.8}
+          onPress={handleAscendSmooth}
+          style={{ alignItems: 'center' }}
         >
-          <Text style={styles.starGlowIcon}>✦</Text>
-          <Text style={styles.starBadgeName}>Buddy</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.starBadge, { top: SCREEN_HEIGHT * 1.10, right: '15%' }]}
-          onPress={() => onSelectStar({ name: 'Luna', type: 'Persian White Cat', tribute: 'Our quiet moonbeam warming the sky.' })}
-        >
-          <Text style={styles.starGlowIcon}>✦</Text>
-          <Text style={styles.starBadgeName}>Luna</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.starBadge, { top: SCREEN_HEIGHT * 1.32, left: '22%' }]}
-          onPress={() => onSelectStar({ name: 'Max', type: 'French Bulldog', tribute: 'Little body, biggest heart in the universe.' })}
-        >
-          <Text style={styles.starGlowIcon}>✦</Text>
-          <Text style={styles.starBadgeName}>Max</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.starBadge, { top: SCREEN_HEIGHT * 1.45, right: '18%' }]}
-          onPress={() => onSelectStar({ name: 'Bella', type: 'Pomeranian', tribute: 'The sweetest little cloud of happiness.' })}
-        >
-          <Text style={styles.starGlowIcon}>✦</Text>
-          <Text style={styles.starBadgeName}>Bella</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.starBadge, { top: SCREEN_HEIGHT * 1.68, left: '35%' }]}
-          onPress={() => onSelectStar({ name: 'Charlie', type: 'Beagle', tribute: 'Always following adventure.' })}
-        >
-          <Text style={styles.starGlowIcon}>✦</Text>
-          <Text style={styles.starBadgeName}>Charlie</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.starBadge, { top: SCREEN_HEIGHT * 1.78, right: '24%' }]}
-          onPress={() => onSelectStar({ name: 'Milo', type: 'Scottish Fold', tribute: 'Rest gently among the stars.' })}
-        >
-          <Text style={styles.starGlowIcon}>✦</Text>
-          <Text style={styles.starBadgeName}>Milo</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.starBadge, { top: SCREEN_HEIGHT * 1.92, left: '16%' }]}
-          onPress={() => onSelectStar({ name: 'Daisy', type: 'Labrador', tribute: 'Pure sunshine forever.' })}
-        >
-          <Text style={styles.starGlowIcon}>✦</Text>
-          <Text style={styles.starBadgeName}>Daisy</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.starBadge, { top: SCREEN_HEIGHT * 2.04, right: '18%' }]}
-          onPress={() => onSelectStar({ name: 'Rocky', type: 'Husky', tribute: 'Howling with cosmic freedom.' })}
-        >
-          <Text style={styles.starGlowIcon}>✦</Text>
-          <Text style={styles.starBadgeName}>Rocky</Text>
-        </TouchableOpacity>
-
-        {/* ================= SECTION 3: GALACTIC CORE DESTINATION ================= */}
-        <View style={styles.topDestinationStarBox}>
-          <Animated.View style={[
-            styles.radiantStarWrapper, 
-            { 
-              opacity: starBurstOpacity,
-              transform: [{ scale: starBurstScale }]
-            }
-          ]}>
-            <IconStar size={58} color="#FFD700" />
-            <View style={styles.newStarBadge}>
-              <Text style={styles.newStarBadgeText}>✨ Beloved Companion's Star</Text>
-            </View>
+          <Animated.View style={{ transform: [{ scale: pulseAnim }], alignItems: 'center' }}>
+            <Text style={styles.chevronUpText}>⌃</Text>
+            <Text style={styles.scrollUpPromptLabel}>Scroll Up</Text>
           </Animated.View>
+        </TouchableOpacity>
+      </Animated.View>
 
-          <Text style={styles.topCosmosQuote}>
-            "So many loved ones,{"\n"}forever in our sky."
-          </Text>
+      {/* ================= SECTION 2: CONSTELLATION MEMORIAL STARS ================= */}
+      <Animated.View 
+        style={[
+          styles.fullScreenBg, 
+          { opacity: starsGroupOpacity }
+        ]}
+        pointerEvents={displayProgress > 0.15 ? 'box-none' : 'none'}
+      >
+        {MEMORIAL_STARS.map((star) => (
+          <MemorialStar 
+            key={star.id} 
+            star={star} 
+            onSelectStar={onSelectStar} 
+          />
+        ))}
+      </Animated.View>
 
-          <View style={styles.destinationButtonRow}>
-            <PillButton 
-              title="Enter Sanctuary Hub →"
-              onPress={onBeginJourney}
-              style={{ minWidth: 230 }}
-            />
-            <TouchableOpacity 
-              style={styles.revisitGroundBtn}
-              onPress={handleScrollToBottom}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.revisitGroundText}>⌃ Return to Earth</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* ================= THE ASCENDING PET SOUL ================= */}
-        {/* Initially sits peacefully on Earth; seamlessly takes flight upon scrolling and becomes the beloved companion's star */}
-        <Animated.View 
+      {/* ================= SECTION 3: THE ASCENDING PET SOUL ================= */}
+      <Animated.View 
+        style={[
+          styles.soulSpriteContainer, 
+          { 
+            transform: [
+              { translateY: flyingSoulTranslateY },
+              { translateY: hoverAnim },
+              { scale: flyingSoulScale }
+            ],
+          }
+        ]}
+        pointerEvents="none"
+      >
+        {/* Resting sitting spirit dog (rests on Earth mound at progress 0) */}
+        <Animated.Image 
+          source={ASSETS.dogSitting} 
           style={[
-            styles.continuousSoulWrapper, 
-            { 
-              transform: [
-                { translateY: soulCanvasTranslateY },
-                { translateY: hoverAnim },
-                { scale: soulScale }
-              ],
-            }
+            styles.soulImage,
+            styles.absoluteFillImage,
+            { opacity: sittingSoulOpacity }
           ]}
-          pointerEvents="none"
-        >
-          {/* Initial sitting spirit dog (rests on the Earth mound) */}
-          <Animated.Image 
-            source={petType === 'DOG' ? ASSETS.dogSitting : ASSETS.catSitting} 
-            style={[
-              styles.soulImage,
-              styles.absoluteFillImage,
-              { opacity: sittingSoulOpacity }
-            ]}
-            resizeMode="contain"
-          />
+          resizeMode="contain"
+        />
 
-          {/* Flying spirit dog (dog_space_transparent.png taking flight into cosmos) */}
-          <Animated.Image 
-            source={petType === 'DOG' ? ASSETS.dogAscendingSpace : ASSETS.catAscendingSpace} 
-            style={[
-              styles.soulImage,
-              styles.absoluteFillImage,
-              { opacity: flyingSoulOpacity }
-            ]}
-            resizeMode="contain"
-          />
-        </Animated.View>
-      </Animated.ScrollView>
-    </View>
+        {/* Flying spirit dog ascending through cosmic sky */}
+        <Animated.Image 
+          source={ASSETS.dogAscendingSpace} 
+          style={[
+            styles.soulImage,
+            styles.absoluteFillImage,
+            { opacity: flyingSoulOpacity }
+          ]}
+          resizeMode="contain"
+        />
+      </Animated.View>
+
+      {/* ================= SECTION 4: UNIVERSE VIEWPORT CLIMAX ================= */}
+      <Animated.View 
+        style={[
+          styles.universeBottomContentBox, 
+          { opacity: universeElementsOpacity }
+        ]}
+        pointerEvents={displayProgress > 0.75 ? 'auto' : 'none'}
+      >
+        <Text style={styles.universeTaglineText}>
+          So many loved ones,{"\n"}forever in our sky.
+        </Text>
+
+        {/* Down chevron indicator: continuing scroll or tapping transitions to Home */}
+        <TouchableOpacity 
+          activeOpacity={0.8}
+          onPress={triggerNavigateHome}
+          style={styles.scrollDownIndicator}
+          hitSlop={{ top: 16, bottom: 16, left: 24, right: 24 }}
+        >
+          <Animated.View style={{ transform: [{ scale: pulseAnim }], alignItems: 'center' }}>
+            <Text style={styles.chevronDownText}>⌄</Text>
+          </Animated.View>
+        </TouchableOpacity>
+      </Animated.View>
+    </Animated.View>
   );
 }
 
@@ -386,9 +581,21 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     height: '100%',
-    backgroundColor: THEME.colors.midnightBg,
+    backgroundColor: '#070C1E',
     overflow: 'hidden',
   },
+
+  fullScreenBg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+  },
+
+  /* FIXED HEADER - STANDALONE CENTERED LOGO, TITLE, SUBTITLE */
   fixedHeader: {
     position: 'absolute',
     top: Platform.OS === 'ios' ? 44 : 20,
@@ -396,21 +603,70 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 100,
     paddingHorizontal: 20,
-  },
-  headerRow: {
-    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerCenterColumn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  standaloneLogoIcon: {
+    width: 38,
+    height: 34,
+    marginBottom: 6,
+  },
+  headerSiteName: {
+    fontSize: 22,
+    fontWeight: '400',
+    color: '#FFFFFF',
+    letterSpacing: 1.1,
+    fontFamily: Platform.OS === 'web' 
+      ? '"Cormorant Garamond", Garamond, Georgia, serif' 
+      : Platform.OS === 'ios' ? 'Georgia' : 'serif',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
+  },
+  headerSubtitle: {
+    fontSize: 11.5,
+    fontWeight: '300',
+    color: 'rgba(255, 255, 255, 0.75)',
+    marginTop: 3,
+    letterSpacing: 1.8,
+    fontFamily: Platform.OS === 'web' 
+      ? '"Cormorant Garamond", Garamond, Georgia, serif' 
+      : Platform.OS === 'ios' ? 'Georgia' : 'serif',
+    textAlign: 'center',
+  },
+  menuCircleBtn: {
+    position: 'absolute',
+    right: 18,
+    top: 4,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hamburgerLines: {
+    width: 22,
+    height: 15,
     justifyContent: 'space-between',
   },
-  headerLeftCol: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  hamburgerLine: {
+    width: 22,
+    height: 2,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 1,
   },
   backCircleBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    position: 'absolute',
+    left: 18,
+    top: 4,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: 'rgba(255, 255, 255, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -422,131 +678,69 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  petToggleBadge: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-  },
-  petToggleText: {
-    fontSize: 18,
-  },
-  headerCenterCol: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  centerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: 0.5,
-    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
-  },
-  centerSubtitle: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.75)',
-    marginTop: 2,
-    letterSpacing: 0.4,
-  },
-  menuCircleBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  hamburgerLines: {
-    width: 22,
-    height: 16,
-    justifyContent: 'space-between',
-  },
-  hamburgerLine: {
-    width: 22,
-    height: 2,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 1,
-  },
 
-  /* Background Canvas Sections (Seamless Earth to Galaxy - middle image removed) */
-  canvasSectionEarth: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: SCREEN_HEIGHT * 1.5,
-  },
-  canvasSectionGalaxy: {
-    position: 'absolute',
-    top: SCREEN_HEIGHT * 1.3,
-    left: 0,
-    right: 0,
-    height: SCREEN_HEIGHT * 1.4,
-  },
-  earthFadeGradient: {
-    flex: 1,
-  },
-
-  /* Section 1: Earth Initial Viewport Layout */
+  /* SECTION 1: EARTH HERO VIEWPORT */
   earthHeroCenterBox: {
     position: 'absolute',
-    top: SCREEN_HEIGHT * 0.35,
-    left: 0,
-    right: 0,
+    top: '32%',
+    left: 16,
+    right: 16,
     alignItems: 'center',
-    paddingHorizontal: 28,
     zIndex: 50,
   },
-  poeticText: {
-    fontSize: 24,
-    fontWeight: '600',
+  poeticTaglineText: {
+    fontSize: 22,
+    fontWeight: '400',
     color: '#FFFFFF',
     textAlign: 'center',
-    lineHeight: 34,
-    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+    lineHeight: 32,
+    letterSpacing: 0.6,
+    fontFamily: Platform.OS === 'web' 
+      ? '"Cormorant Garamond", Garamond, Georgia, serif' 
+      : Platform.OS === 'ios' ? 'Georgia' : 'serif',
     marginBottom: 20,
     textShadowColor: 'rgba(0, 0, 0, 0.85)',
     textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 6,
+    textShadowRadius: 8,
   },
   ctaPill: {
-    minWidth: 225,
+    minWidth: 220,
   },
+
+  /* PROMPT: SCROLL UP */
   scrollUpPromptBox: {
     position: 'absolute',
-    top: SCREEN_HEIGHT * 0.87,
+    bottom: Platform.OS === 'ios' ? 32 : 18,
     left: 0,
     right: 0,
     alignItems: 'center',
     zIndex: 60,
   },
-  chevronUp: {
-    fontSize: 24,
+  chevronUpText: {
+    fontSize: 20,
     color: '#FFFFFF',
-    fontWeight: '900',
-    lineHeight: 24,
+    fontWeight: '300',
+    lineHeight: 20,
   },
-  scrollUpPromptText: {
-    fontSize: 13,
+  scrollUpPromptLabel: {
+    fontSize: 12.5,
     color: '#FFFFFF',
-    fontWeight: '700',
-    letterSpacing: 0.8,
+    fontWeight: '400',
+    letterSpacing: 1.2,
     marginTop: 2,
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    fontFamily: Platform.OS === 'web' ? '"Inter", -apple-system, sans-serif' : 'sans-serif',
+    textShadowColor: 'rgba(0, 0, 0, 0.85)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
   },
 
-  /* The Pet Soul Sprite (Completely transparent PNG on the grassy mound) */
-  continuousSoulWrapper: {
+  /* PET SOUL SPRITE */
+  soulSpriteContainer: {
     position: 'absolute',
-    top: SCREEN_HEIGHT * 0.57,
-    left: (SCREEN_WIDTH - SCREEN_WIDTH * 0.76) / 2,
-    width: SCREEN_WIDTH * 0.76,
-    height: SCREEN_HEIGHT * 0.34,
+    top: '52%',
+    left: (SCREEN_WIDTH - SCREEN_WIDTH * 0.74) / 2,
+    width: SCREEN_WIDTH * 0.74,
+    height: '32%',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 40,
@@ -563,102 +757,71 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
 
-  /* Star Badges */
-  starBadge: {
+  /* MEMORIAL STARS & NAME LABELS */
+  starPlacement: {
     position: 'absolute',
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(15, 23, 55, 0.82)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 215, 0, 0.65)',
-    paddingVertical: 5,
-    paddingHorizontal: 11,
-    borderRadius: 14,
-    shadowColor: '#FFD700',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 8,
-    elevation: 4,
     zIndex: 45,
   },
-  starGlowIcon: {
-    fontSize: 13,
-    color: '#FFD700',
-    marginRight: 6,
+  starRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  starBadgeName: {
-    fontSize: 12,
-    fontWeight: '700',
+  starGlyphIcon: {
+    fontSize: 16,
+    color: '#FFDE7A',
+    textShadowColor: 'rgba(255, 222, 122, 0.75)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 6,
+  },
+  namePill: {
+    backgroundColor: 'rgba(8, 14, 30, 0.88)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+    paddingVertical: 3,
+    paddingHorizontal: 9,
+    borderRadius: 10,
+  },
+  namePillText: {
+    fontSize: 11.5,
+    fontWeight: '500',
     color: '#FFFFFF',
     letterSpacing: 0.4,
+    fontFamily: Platform.OS === 'web' ? '"Inter", -apple-system, sans-serif' : 'sans-serif',
   },
 
-  /* Climax Section: Galactic Destination */
-  topDestinationStarBox: {
+  /* SECTION 4: UNIVERSE VIEWPORT CLIMAX */
+  universeBottomContentBox: {
     position: 'absolute',
-    top: SCREEN_HEIGHT * 2.14,
-    left: 0,
-    right: 0,
+    bottom: Platform.OS === 'ios' ? 32 : 18,
+    left: 16,
+    right: 16,
     alignItems: 'center',
-    paddingHorizontal: 20,
-    zIndex: 50,
+    zIndex: 60,
   },
-  radiantStarWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  radiantGlowHalo: {
-    position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255, 215, 0, 0.28)',
-  },
-  newStarBadge: {
-    backgroundColor: 'rgba(15, 25, 62, 0.90)',
-    borderWidth: 1,
-    borderColor: '#FFD700',
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-    marginTop: 14,
-    shadowColor: '#FFD700',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.75,
-    shadowRadius: 10,
-  },
-  newStarBadgeText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFD700',
-  },
-  topCosmosQuote: {
-    fontSize: 21,
-    fontWeight: '600',
-    fontStyle: 'italic',
-    color: '#E2E8F0',
+  universeTaglineText: {
+    fontSize: 16.5,
+    fontWeight: '500',
+    fontStyle: 'normal',
+    color: '#FFFFFF',
     textAlign: 'center',
-    lineHeight: 29,
-    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
-    marginVertical: 14,
+    lineHeight: 25,
+    letterSpacing: 0.4,
+    fontFamily: Platform.OS === 'web' ? '"Inter", -apple-system, sans-serif' : 'sans-serif',
+    marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.85)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
   },
-  destinationButtonRow: {
+  scrollDownIndicator: {
+    paddingVertical: 4,
+    paddingHorizontal: 12,
     alignItems: 'center',
-    gap: 12,
-    marginTop: 8,
   },
-  revisitGroundBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 18,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  revisitGroundText: {
-    fontSize: 12,
-    color: '#93C5FD',
-    fontWeight: '600',
+  chevronDownText: {
+    fontSize: 24,
+    color: '#FFFFFF',
+    fontWeight: '300',
+    lineHeight: 24,
   },
 });

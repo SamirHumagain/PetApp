@@ -13,9 +13,11 @@ export default function BrandHeader({
   return (
     <View style={styles.headerContainer}>
       <View style={styles.brandRow}>
-        <View style={styles.brandBadgeCircle}>
-          <Text style={styles.brandBadgeEmoji}>🐾</Text>
-        </View>
+        <Image 
+          source={ASSETS.logoClean} 
+          style={styles.brandLogo} 
+          resizeMode="contain" 
+        />
         <View style={styles.titleColumn}>
           <Text style={styles.titleText}>{title}</Text>
           {subtitle ? <Text style={styles.subtitleText}>{subtitle}</Text> : null}
@@ -58,34 +60,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  brandBadgeCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(123, 47, 190, 0.25)',
-    borderWidth: 1,
-    borderColor: 'rgba(167, 139, 250, 0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  brandBadgeEmoji: {
-    fontSize: 18,
+  brandLogo: {
+    width: 32,
+    height: 30,
   },
   titleColumn: {
     justifyContent: 'center',
   },
   titleText: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '500',
     color: '#FFFFFF',
-    letterSpacing: 0.3,
-    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+    letterSpacing: 0.5,
+    fontFamily: Platform.OS === 'web' ? '"Cormorant Garamond", Garamond, Georgia, serif' : Platform.OS === 'ios' ? 'Georgia' : 'serif',
   },
   subtitleText: {
     fontSize: 12,
     color: THEME.colors.textMuted,
     marginTop: 1,
-    letterSpacing: 0.2,
+    letterSpacing: 0.5,
+    fontFamily: Platform.OS === 'web' ? '"Cormorant Garamond", Garamond, Georgia, serif' : Platform.OS === 'ios' ? 'Georgia' : 'serif',
   },
   rightActionsRow: {
     flexDirection: 'row',

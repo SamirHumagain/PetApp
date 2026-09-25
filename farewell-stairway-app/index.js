@@ -23,6 +23,25 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
     }
     themeMeta.setAttribute('content', '#070C1E');
 
+    if (!document.getElementById('farewell-google-fonts')) {
+      const fontLink1 = document.createElement('link');
+      fontLink1.rel = 'preconnect';
+      fontLink1.href = 'https://fonts.googleapis.com';
+      document.head.appendChild(fontLink1);
+
+      const fontLink2 = document.createElement('link');
+      fontLink2.rel = 'preconnect';
+      fontLink2.href = 'https://fonts.gstatic.com';
+      fontLink2.crossOrigin = 'anonymous';
+      document.head.appendChild(fontLink2);
+
+      const fontLink3 = document.createElement('link');
+      fontLink3.id = 'farewell-google-fonts';
+      fontLink3.rel = 'stylesheet';
+      fontLink3.href = 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Inter:wght@300;400;500;600;700&display=swap';
+      document.head.appendChild(fontLink3);
+    }
+
     const style = document.createElement('style');
     style.id = 'farewell-global-web-reset';
     style.textContent = `

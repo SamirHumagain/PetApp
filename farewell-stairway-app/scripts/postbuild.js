@@ -19,6 +19,12 @@ if (fs.existsSync(distHtmlPath)) {
     html = html.replace('</head>', '  <meta name="theme-color" content="#070C1E" />\n</head>');
   }
 
+  // 2b. Add Google Fonts
+  if (!html.includes('Cormorant+Garamond')) {
+    const fontsHtml = '  <link rel="preconnect" href="https://fonts.googleapis.com">\n  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">\n</head>';
+    html = html.replace('</head>', fontsHtml);
+  }
+
   // 3. Inject full-height, full-width zero-margin dark background CSS into reset styles
   const darkResetCss = `
       /* Farewell to Stairway full mobile viewport dark theme reset */
