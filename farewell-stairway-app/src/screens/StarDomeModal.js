@@ -80,7 +80,7 @@ export default function StarDomeModal({
     >
       <View style={styles.container}>
         <ImageBackground 
-          source={ASSETS.bgFullGalaxy} 
+          source={ASSETS.bgStarDome} 
           style={styles.fullBackground}
           resizeMode="cover"
         >

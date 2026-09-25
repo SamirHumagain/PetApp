@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -227,9 +227,9 @@ export default function TwoC2PGatewayModal({
 
       <!-- Channel Tabs -->
       <div class="tabs">
-        <button class="tab-btn active" id="tab-qr" onclick="setTab('qr')">📱 PromptPay QR</button>
-        <button class="tab-btn" id="tab-card" onclick="setTab('card')">💳 Cards (3DS)</button>
-        <button class="tab-btn" id="tab-bank" onclick="setTab('bank')">🏦 Mobile Banking</button>
+        <button type="button" class="tab-btn active" id="tab-qr" onclick="setTab('qr')">📱 PromptPay QR</button>
+        <button type="button" class="tab-btn" id="tab-card" onclick="setTab('card')">💳 Cards (3DS)</button>
+        <button type="button" class="tab-btn" id="tab-bank" onclick="setTab('bank')">🏦 Mobile Banking</button>
       </div>
 
       <!-- Tab 1: PromptPay -->
@@ -323,11 +323,24 @@ export default function TwoC2PGatewayModal({
         }, 1000);
 
         function setTab(tab) {
-          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-          document.getElementById('tab-' + tab).classList.add('active');
-          document.getElementById('content-qr').style.display = tab === 'qr' ? 'block' : 'none';
-          document.getElementById('content-card').style.display = tab === 'card' ? 'block' : 'none';
-          document.getElementById('content-bank').style.display = tab === 'bank' ? 'block' : 'none';
+          try {
+            var btns = document.querySelectorAll('.tab-btn');
+            for (var i = 0; i < btns.length; i++) {
+              btns[i].classList.remove('active');
+            }
+            var activeBtn = document.getElementById('tab-' + tab);
+            if (activeBtn) activeBtn.classList.add('active');
+
+            var qrBox = document.getElementById('content-qr');
+            var cardBox = document.getElementById('content-card');
+            var bankBox = document.getElementById('content-bank');
+
+            if (qrBox) qrBox.style.display = (tab === 'qr') ? 'block' : 'none';
+            if (cardBox) cardBox.style.display = (tab === 'card') ? 'block' : 'none';
+            if (bankBox) bankBox.style.display = (tab === 'bank') ? 'block' : 'none';
+          } catch(err) {
+            console.error('Error switching tab:', err);
+          }
         }
 
         function authorizePayment(channel) {
@@ -359,6 +372,11 @@ export default function TwoC2PGatewayModal({
     </body>
     </html>
   `;
+
+  // Memoize hosted HTML so that the iframe never reloads during payment
+  const hostedHTML = useMemo(() => {
+    return generate2C2PHostedHTML();
+  }, [amount, invoiceNo, petName, templeName]);
 
   return (
     <Modal
@@ -399,7 +417,7 @@ export default function TwoC2PGatewayModal({
           {Platform.OS === 'web' ? (
             <iframe
               src={useLiveUrl && currentUrl.startsWith('http') ? currentUrl : undefined}
-              srcDoc={!useLiveUrl || !currentUrl.startsWith('http') ? generate2C2PHostedHTML() : undefined}
+              srcDoc={!useLiveUrl || !currentUrl.startsWith('http') ? hostedHTML : undefined}
               style={{
                 width: '100%',
                 height: '100%',
@@ -415,7 +433,7 @@ export default function TwoC2PGatewayModal({
               source={
                 useLiveUrl && currentUrl.startsWith('http')
                   ? { uri: currentUrl }
-                  : { html: generate2C2PHostedHTML() }
+                  : { html: hostedHTML }
               }
               onMessage={handleMessage}
               onNavigationStateChange={handleNavigationStateChange}

@@ -138,20 +138,24 @@ export default function App() {
   const handleFormSubmitSuccess = async (tributeData) => {
     setUserTributes(prev => [tributeData, ...prev]);
     
-    // Set rich active booking for 10-stage timeline tracking
-    const bookingInfo = tributeData.activeBookingData || {
-      petName: tributeData.name,
-      petType: tributeData.type,
-      templeName: tributeData.templeName,
-      packageName: 'TURNKEY CELESTIAL',
-      totalAmount: 6500,
-      invoiceNo: `INV-${Date.now().toString().slice(-6)}`,
-      status: 'CONFIRMED',
-      paymentMethod: 'PromptPay QR (2C2P)',
-      driverName: 'Somchai K.',
-      driverVehicle: 'Toyota HiAce Ambulance',
-      driverPlate: '1ฒข 8842 กทม',
-      driverPhone: '089-123-4567',
+    // Set rich active booking for 10-stage timeline tracking (all 10 stages auto-checked)
+    const bookingInfo = {
+      ...(tributeData.activeBookingData || {
+        petName: tributeData.name,
+        petType: tributeData.type,
+        templeName: tributeData.templeName,
+        packageName: 'TURNKEY CELESTIAL',
+        totalAmount: 6500,
+        invoiceNo: `INV-${Date.now().toString().slice(-6)}`,
+        status: 'CONFIRMED',
+        paymentMethod: 'PromptPay QR (2C2P)',
+        driverName: 'Somchai K.',
+        driverVehicle: 'Toyota HiAce Ambulance',
+        driverPlate: '1ฒข 8842 กทม',
+        driverPhone: '089-123-4567',
+      }),
+      currentStage: 10,
+      isCompleted: true,
     };
     setActiveBooking(bookingInfo);
 

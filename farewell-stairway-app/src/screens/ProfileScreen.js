@@ -20,7 +20,19 @@ export default function ProfileScreen({
   onNavigateForm,
   onNavigateStars,
 }) {
-  const [selectedTimelineStage, setSelectedTimelineStage] = useState(4); // 4 = At Temple (live demo)
+  // Auto-check all 10 stages (10/10 completed) with green checkmarks once process is completed
+  const [selectedTimelineStage, setSelectedTimelineStage] = useState(() => {
+    return activeBooking?.currentStage || 10;
+  });
+
+  // Sync state if activeBooking changes
+  React.useEffect(() => {
+    if (activeBooking?.currentStage) {
+      setSelectedTimelineStage(activeBooking.currentStage);
+    } else {
+      setSelectedTimelineStage(10);
+    }
+  }, [activeBooking]);
 
   const trackingStages = [
     { step: 1, title: 'Request Submitted', desc: 'Arrangements confirmed with sanctuary' },
@@ -112,24 +124,28 @@ export default function ProfileScreen({
 
             {/* Quick Stage Simulator for Demo */}
             <View style={styles.stageSimulatorRow}>
-              <Text style={styles.simulatorLabel}>Journey Stage: {selectedTimelineStage}/10</Text>
+              <Text style={styles.simulatorLabel}>
+                {selectedTimelineStage >= 10 ? 'Journey Stage: 10/10 (All Completed ✓)' : `Journey Stage: ${selectedTimelineStage}/10`}
+              </Text>
               <TouchableOpacity 
                 style={styles.advanceStageBtn}
-                onPress={() => setSelectedTimelineStage(prev => (prev < 10 ? prev + 1 : 1))}
+                onPress={() => setSelectedTimelineStage(prev => (prev < 10 ? 10 : 1))}
               >
                 <Text style={styles.advanceStageBtnText}>
-                  {selectedTimelineStage === 10 ? '↺ Reset to Stage 1' : `Advance Stage → (${selectedTimelineStage + 1}/10)`}
+                  {selectedTimelineStage >= 10 ? '↺ Test Stage 1' : '✓ Auto-Check All (10/10)'}
                 </Text>
               </TouchableOpacity>
             </View>
           </View>
         )}
 
-        {/* 10-Stage Journey Tracking (Prompt Section 18) */}
+        {/* 10-Stage Journey Tracking */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>10-Stage Journey Tracking</Text>
-            <Text style={styles.activeStageBadge}>Stage {selectedTimelineStage}/10</Text>
+            <Text style={styles.activeStageBadge}>
+              {selectedTimelineStage >= 10 ? 'All 10 Stages Completed ✓' : `Stage ${selectedTimelineStage}/10`}
+            </Text>
           </View>
 
           {/* Assigned Driver Box */}
@@ -142,7 +158,7 @@ export default function ProfileScreen({
               </View>
               <View style={styles.driverStatusBadge}>
                 <Text style={styles.driverStatusText}>
-                  {selectedTimelineStage >= 7 ? '✓ Route Completed' : `🟢 On Route (ETA ${assignedDriver.etaMins}m)`}
+                  {selectedTimelineStage >= 10 ? '✓ Journey Completed' : selectedTimelineStage >= 7 ? '✓ Route Completed' : `🟢 On Route (ETA ${assignedDriver.etaMins}m)`}
                 </Text>
               </View>
             </View>
@@ -154,11 +170,12 @@ export default function ProfileScreen({
             </TouchableOpacity>
           </View>
 
-          {/* Timeline Steps */}
+          {/* Timeline Steps: All 10 auto-checked when process is complete */}
           <View style={styles.timelineList}>
             {trackingStages.map((stage) => {
-              const isPast = stage.step < selectedTimelineStage;
-              const isCurrent = stage.step === selectedTimelineStage;
+              const isAllCompleted = selectedTimelineStage >= 10;
+              const isChecked = isAllCompleted ? true : stage.step < selectedTimelineStage;
+              const isCurrent = !isAllCompleted && stage.step === selectedTimelineStage;
 
               return (
                 <TouchableOpacity 
@@ -170,18 +187,27 @@ export default function ProfileScreen({
                   <View style={styles.timelineMarkerCol}>
                     <View style={[
                       styles.timelineDot,
-                      isPast && styles.pastDot,
+                      isChecked && styles.pastDot,
                       isCurrent && styles.currentDot
                     ]}>
                       <Text style={styles.dotNumberText}>
-                        {isPast ? '✓' : stage.step}
+                        {isChecked ? '✓' : stage.step}
                       </Text>
                     </View>
-                    {stage.step < 10 && <View style={[styles.timelineLine, isPast && styles.pastLine]} />}
+                    {stage.step < 10 && (
+                      <View style={[
+                        styles.timelineLine, 
+                        (isChecked && (isAllCompleted || stage.step < selectedTimelineStage)) && styles.pastLine
+                      ]} />
+                    )}
                   </View>
 
                   <View style={styles.timelineTextCol}>
-                    <Text style={[styles.stageTitle, isCurrent && styles.currentStageTitle]}>
+                    <Text style={[
+                      styles.stageTitle, 
+                      isChecked && styles.completedStageTitle,
+                      isCurrent && styles.currentStageTitle
+                    ]}>
                       {stage.title}
                     </Text>
                     <Text style={styles.stageDesc}>{stage.desc}</Text>
@@ -512,6 +538,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#CBD5E1',
+  },
+  completedStageTitle: {
+    color: '#F8FAFC',
+    fontWeight: '700',
   },
   currentStageTitle: {
     color: '#93C5FD',

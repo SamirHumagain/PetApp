@@ -25,4 +25,7 @@ export const ASSETS = {
 
   // Navigation Drawer Background with Dog Silhouette (Screen 8)
   bgDrawer: require('../../assets/bg_drawer.jpg'),
+
+  // Celestial Star Dome Background
+  bgStarDome: require('../../assets/bg_star_dome.jpg'),
 };

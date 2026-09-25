@@ -65,12 +65,13 @@ export default function FuneralFormScreen({
   const [cardHolder, setCardHolder] = useState(currentUser?.name || 'Companion Guardian');
   const [trueMoneyPhone, setTrueMoneyPhone] = useState('081-987-6543');
   
-  // Timer for PromptPay (15 minutes countdown)
-  const [timerSeconds, setTimerSeconds] = useState(900);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentResult, setPaymentResult] = useState(null);
   const [is2C2PGatewayVisible, setIs2C2PGatewayVisible] = useState(false);
   const [gatewayTokenData, setGatewayTokenData] = useState(null);
+
+  // Stable invoice number per booking session (never re-generated on re-render)
+  const [invoiceNumber] = useState(() => `INV-${new Date().getFullYear()}${Date.now().toString().slice(-6)}`);
 
   // Update selected temple if initialTemple prop changes
   useEffect(() => {
@@ -78,16 +79,6 @@ export default function FuneralFormScreen({
       setSelectedTempleId(initialTemple.id);
     }
   }, [initialTemple]);
-
-  // PromptPay countdown timer effect
-  useEffect(() => {
-    if (currentStep === 'PAYMENT' && paymentMethod === 'PROMPTPAY') {
-      const interval = setInterval(() => {
-        setTimerSeconds(prev => (prev > 0 ? prev - 1 : 900));
-      }, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [currentStep, paymentMethod]);
 
   const selectedTemple = templesList.find(t => t.id === selectedTempleId) || templesList[0];
   const assignedDriver = driversList[0];
@@ -144,7 +135,6 @@ export default function FuneralFormScreen({
   };
 
   const totalAmount = calculateTotal();
-  const invoiceNumber = `INV-${new Date().getFullYear()}${Date.now().toString().slice(-6)}`;
 
   // Navigation handlers between steps
   const handleValidatePetInfo = () => {
@@ -371,8 +361,12 @@ export default function FuneralFormScreen({
         x: paymentResult.starX,
         y: paymentResult.starY,
         likes: 1,
-        // Active booking data for Profile 10-stage timeline
-        activeBookingData: paymentResult,
+        // Active booking data for Profile 10-stage timeline (all 10 stages auto-checked)
+        activeBookingData: {
+          ...paymentResult,
+          currentStage: 10,
+          isCompleted: true,
+        },
       });
     }
   };
