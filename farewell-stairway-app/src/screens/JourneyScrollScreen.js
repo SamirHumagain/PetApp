@@ -184,19 +184,24 @@ export default function JourneyScrollScreen({
   }, [animProgress, triggerNavigateHome]);
 
   // Wheel handling for Web:
-  // deltaY < 0 = SCROLL UP => progress increases upward into the stars!
-  // deltaY > 0 = SCROLL DOWN => if at Universe view (progress >= 0.88), navigates to Home!
+  // deltaY < 0 = SCROLL UP => ascends upward into the stars!
+  // At Earth: any scroll motion initiates the journey!
   const handleWheel = useCallback((e) => {
     if (isNavigatingHomeRef.current) return;
     const delta = e.deltaY;
+    const isAtEarth = currentProgressRef.current <= 0.06;
 
     if (delta < 0) {
       // Scrolling UP: ascends into the stars
       const step = Math.abs(delta) * 0.0022;
       updateProgress(currentProgressRef.current + step);
     } else if (delta > 0) {
-      // Scrolling DOWN
-      if (currentProgressRef.current >= 0.88) {
+      if (isAtEarth) {
+        // At Earth: any scroll starts the journey upward into the stars
+        const step = delta * 0.0022;
+        updateProgress(currentProgressRef.current + step);
+      } else if (currentProgressRef.current >= 0.85) {
+        // At Universe view: scrolling down navigates to Home
         triggerNavigateHome();
       } else {
         const step = delta * 0.0022;
@@ -206,7 +211,6 @@ export default function JourneyScrollScreen({
   }, [updateProgress, triggerNavigateHome]);
 
   // Touch / PanResponder handling for Mobile & Gestures:
-  // Tracking incremental move deltas with prevYRef ensures fluid, 1:1, non-stuck gestures!
   const prevYRef = useRef(0);
 
   const panResponder = useRef(
@@ -214,35 +218,40 @@ export default function JourneyScrollScreen({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dy) > 2,
       onPanResponderGrant: (_, gestureState) => {
-        prevYRef.current = gestureState.y0;
+        prevYRef.current = gestureState.moveY;
       },
       onPanResponderMove: (_, gestureState) => {
         if (isNavigatingHomeRef.current) return;
-        // deltaY > 0 when user drags finger UPWARDS ("scroll up" gesture)
-        const deltaY = prevYRef.current - gestureState.moveY;
+        const dragDelta = gestureState.moveY - prevYRef.current;
         prevYRef.current = gestureState.moveY;
 
-        if (deltaY > 0) {
-          // Dragging finger UP -> ascends into the stars!
-          const step = deltaY * 0.0035;
+        const isAtEarth = currentProgressRef.current <= 0.06;
+
+        if (isAtEarth) {
+          // At Earth: any swipe initiates the upward journey into the stars!
+          const step = Math.abs(dragDelta) * 0.0035;
           updateProgress(currentProgressRef.current + step);
-        } else if (deltaY < 0) {
-          // Dragging finger DOWN
-          if (currentProgressRef.current >= 0.88) {
+        } else if (dragDelta > 0) {
+          // Dragging DOWN (mobile "scroll up" to see sky above) -> ascends into the stars!
+          const step = dragDelta * 0.0035;
+          updateProgress(currentProgressRef.current + step);
+        } else if (dragDelta < 0) {
+          // Dragging UP (mobile "scroll down")
+          if (currentProgressRef.current >= 0.85) {
             triggerNavigateHome();
           } else {
-            const step = Math.abs(deltaY) * 0.0035;
+            const step = Math.abs(dragDelta) * 0.0035;
             updateProgress(currentProgressRef.current - step);
           }
         }
       },
       onPanResponderRelease: (_, gestureState) => {
         if (isNavigatingHomeRef.current) return;
-        if (gestureState.vy < -0.3) {
-          // Fast flick up -> smoothly ascend all the way to universe!
+        if (Math.abs(gestureState.vy) > 0.35 && currentProgressRef.current <= 0.25) {
+          // Flick at Earth -> smoothly ascend all the way to universe!
           handleAscendSmooth();
-        } else if (gestureState.vy > 0.3 && currentProgressRef.current >= 0.85) {
-          // Fast flick down at universe -> navigate home
+        } else if (gestureState.vy < -0.35 && currentProgressRef.current >= 0.80) {
+          // Fast flick at universe -> navigate home
           triggerNavigateHome();
         }
       },
@@ -258,7 +267,9 @@ export default function JourneyScrollScreen({
           // Scroll up into stars
           updateProgress(currentProgressRef.current + 0.2);
         } else if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
-          if (currentProgressRef.current >= 0.88) {
+          if (currentProgressRef.current <= 0.06) {
+            updateProgress(currentProgressRef.current + 0.2);
+          } else if (currentProgressRef.current >= 0.85) {
             triggerNavigateHome();
           } else {
             updateProgress(currentProgressRef.current - 0.2);
@@ -271,7 +282,6 @@ export default function JourneyScrollScreen({
   }, [updateProgress, triggerNavigateHome]);
 
   // Mobile Web touch gesture listener for deployed browser environments (Brave, Chrome, Safari)
-  // Non-passive listener with e.preventDefault() guarantees mobile browsers do NOT cancel touches for native scroll!
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
 
@@ -287,23 +297,29 @@ export default function JourneyScrollScreen({
       if (isNavigatingHomeRef.current || startTouchY === null) return;
       if (e.touches && e.touches.length > 0) {
         const currentTouchY = e.touches[0].clientY;
-        const delta = startTouchY - currentTouchY; // positive when dragging UP
+        const dragDelta = currentTouchY - startTouchY;
         startTouchY = currentTouchY;
 
         if (e.cancelable) {
           e.preventDefault();
         }
 
-        if (delta > 0) {
-          // Swiping UP -> ascend into the stars
-          const step = delta * 0.0035;
+        const isAtEarth = currentProgressRef.current <= 0.06;
+
+        if (isAtEarth) {
+          // At Earth: any swipe initiates the upward journey into the stars!
+          const step = Math.abs(dragDelta) * 0.0035;
           updateProgress(currentProgressRef.current + step);
-        } else if (delta < 0) {
-          // Swiping DOWN
-          if (currentProgressRef.current >= 0.88) {
+        } else if (dragDelta > 0) {
+          // Dragging DOWN (mobile "scroll up") -> ascends into the stars!
+          const step = dragDelta * 0.0035;
+          updateProgress(currentProgressRef.current + step);
+        } else if (dragDelta < 0) {
+          // Dragging UP (mobile "scroll down")
+          if (currentProgressRef.current >= 0.85) {
             triggerNavigateHome();
           } else {
-            const step = Math.abs(delta) * 0.0035;
+            const step = Math.abs(dragDelta) * 0.0035;
             updateProgress(currentProgressRef.current - step);
           }
         }
