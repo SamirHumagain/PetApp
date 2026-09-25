@@ -119,34 +119,29 @@ export default function JourneyScrollScreen({
       Animated.sequence([
         Animated.timing(hoverAnim, {
           toValue: -6,
-          duration: 2200,
+          duration: 2600,
           useNativeDriver: true,
         }),
         Animated.timing(hoverAnim, {
           toValue: 0,
-          duration: 2200,
+          duration: 2600,
           useNativeDriver: true,
         }),
       ])
     ).start();
   }, []);
 
-  // Update progress helper
-  const updateProgress = useCallback((newVal) => {
-    const clamped = Math.max(0, Math.min(1, newVal));
-    currentProgressRef.current = clamped;
-    animProgress.setValue(clamped);
-    setDisplayProgress(clamped);
-  }, [animProgress]);
+  const autoEnterTimerRef = useRef(null);
 
   // Transition smoothly to Home page
   const triggerNavigateHome = useCallback(() => {
     if (isNavigatingHomeRef.current) return;
     isNavigatingHomeRef.current = true;
+    if (autoEnterTimerRef.current) clearTimeout(autoEnterTimerRef.current);
 
     Animated.timing(screenFadeAnim, {
       toValue: 0,
-      duration: 450,
+      duration: 800,
       easing: Easing.out(Easing.quad),
       useNativeDriver: true,
     }).start(() => {
@@ -154,61 +149,60 @@ export default function JourneyScrollScreen({
     });
   }, [screenFadeAnim, onBeginJourney]);
 
-  // Smoothly ascend upwards into the stars upon clicking "Scroll Up" or CTA
+  // Update progress helper: auto enters sanctuary once scrolled to the top universe
+  const updateProgress = useCallback((newVal) => {
+    const clamped = Math.max(0, Math.min(1, newVal));
+    currentProgressRef.current = clamped;
+    animProgress.setValue(clamped);
+    setDisplayProgress(clamped);
+
+    // Auto enter sanctuary when scroll reaches the universe view
+    if (clamped >= 0.94 && !isNavigatingHomeRef.current) {
+      if (autoEnterTimerRef.current) clearTimeout(autoEnterTimerRef.current);
+      autoEnterTimerRef.current = setTimeout(() => {
+        triggerNavigateHome();
+      }, 700);
+    }
+  }, [animProgress, triggerNavigateHome]);
+
+  // Smoothly ascend upwards into the stars upon clicking "Scroll Up" or CTA, then auto-enters
   const handleAscendSmooth = useCallback(() => {
     Animated.timing(animProgress, {
       toValue: 1,
-      duration: 1800,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start(() => {
-      currentProgressRef.current = 1;
-      setDisplayProgress(1);
-    });
-  }, [animProgress]);
-
-  // Begin journey button click: smoothly ascends and transitions to home
-  const handleBeginJourneyClick = useCallback(() => {
-    Animated.timing(animProgress, {
-      toValue: 1,
-      duration: 1600,
-      easing: Easing.out(Easing.cubic),
+      duration: 3800,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1.0),
       useNativeDriver: true,
     }).start(() => {
       currentProgressRef.current = 1;
       setDisplayProgress(1);
       setTimeout(() => {
         triggerNavigateHome();
-      }, 500);
+      }, 700);
     });
   }, [animProgress, triggerNavigateHome]);
 
+  // Begin journey button click: smoothly ascends and auto-enters
+  const handleBeginJourneyClick = useCallback(() => {
+    handleAscendSmooth();
+  }, [handleAscendSmooth]);
+
   // Wheel handling for Web:
-  // deltaY < 0 = SCROLL UP => ascends upward into the stars!
-  // At Earth: any scroll motion initiates the journey!
+  // deltaY < 0 = SCROLL UP => ascends into the stars!
+  // deltaY > 0 = SCROLL DOWN => returns back down to Earth!
   const handleWheel = useCallback((e) => {
     if (isNavigatingHomeRef.current) return;
     const delta = e.deltaY;
-    const isAtEarth = currentProgressRef.current <= 0.06;
 
     if (delta < 0) {
-      // Scrolling UP: ascends into the stars
-      const step = Math.abs(delta) * 0.0022;
+      // SCROLL UP: ascends into the stars!
+      const step = Math.abs(delta) * 0.0016;
       updateProgress(currentProgressRef.current + step);
     } else if (delta > 0) {
-      if (isAtEarth) {
-        // At Earth: any scroll starts the journey upward into the stars
-        const step = delta * 0.0022;
-        updateProgress(currentProgressRef.current + step);
-      } else if (currentProgressRef.current >= 0.85) {
-        // At Universe view: scrolling down navigates to Home
-        triggerNavigateHome();
-      } else {
-        const step = delta * 0.0022;
-        updateProgress(currentProgressRef.current - step);
-      }
+      // SCROLL DOWN: returns downward toward Earth!
+      const step = Math.abs(delta) * 0.0016;
+      updateProgress(currentProgressRef.current - step);
     }
-  }, [updateProgress, triggerNavigateHome]);
+  }, [updateProgress]);
 
   // Touch / PanResponder handling for Mobile & Gestures:
   const prevYRef = useRef(0);
@@ -225,34 +219,24 @@ export default function JourneyScrollScreen({
         const dragDelta = gestureState.moveY - prevYRef.current;
         prevYRef.current = gestureState.moveY;
 
-        const isAtEarth = currentProgressRef.current <= 0.06;
-
-        if (isAtEarth) {
-          // At Earth: any swipe initiates the upward journey into the stars!
-          const step = Math.abs(dragDelta) * 0.0035;
+        // Mobile touch:
+        // Swiping/dragging UP (moveY decreases, dragDelta < 0):
+        // THIS IS SCROLL UP: ascends upward into the stars!
+        if (dragDelta < 0) {
+          const step = Math.abs(dragDelta) * 0.0022;
           updateProgress(currentProgressRef.current + step);
         } else if (dragDelta > 0) {
-          // Dragging DOWN (mobile "scroll up" to see sky above) -> ascends into the stars!
-          const step = dragDelta * 0.0035;
-          updateProgress(currentProgressRef.current + step);
-        } else if (dragDelta < 0) {
-          // Dragging UP (mobile "scroll down")
-          if (currentProgressRef.current >= 0.85) {
-            triggerNavigateHome();
-          } else {
-            const step = Math.abs(dragDelta) * 0.0035;
-            updateProgress(currentProgressRef.current - step);
-          }
+          // Swiping/dragging DOWN (moveY increases, dragDelta > 0):
+          // THIS IS SCROLL DOWN: returns downward toward Earth!
+          const step = Math.abs(dragDelta) * 0.0022;
+          updateProgress(currentProgressRef.current - step);
         }
       },
       onPanResponderRelease: (_, gestureState) => {
         if (isNavigatingHomeRef.current) return;
-        if (Math.abs(gestureState.vy) > 0.35 && currentProgressRef.current <= 0.25) {
-          // Flick at Earth -> smoothly ascend all the way to universe!
+        // Flick UPWARD (vy < -0.35): smoothly ascends into stars!
+        if (gestureState.vy < -0.35) {
           handleAscendSmooth();
-        } else if (gestureState.vy < -0.35 && currentProgressRef.current >= 0.80) {
-          // Fast flick at universe -> navigate home
-          triggerNavigateHome();
         }
       },
     })
@@ -265,21 +249,19 @@ export default function JourneyScrollScreen({
         if (isNavigatingHomeRef.current) return;
         if (e.key === 'ArrowUp' || e.key === 'PageUp') {
           // Scroll up into stars
-          updateProgress(currentProgressRef.current + 0.2);
+          updateProgress(currentProgressRef.current + 0.1);
         } else if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
           if (currentProgressRef.current <= 0.06) {
-            updateProgress(currentProgressRef.current + 0.2);
-          } else if (currentProgressRef.current >= 0.85) {
-            triggerNavigateHome();
+            updateProgress(currentProgressRef.current + 0.1);
           } else {
-            updateProgress(currentProgressRef.current - 0.2);
+            updateProgress(currentProgressRef.current - 0.1);
           }
         }
       };
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [updateProgress, triggerNavigateHome]);
+  }, [updateProgress]);
 
   // Mobile Web touch gesture listener for deployed browser environments (Brave, Chrome, Safari)
   useEffect(() => {
@@ -304,24 +286,16 @@ export default function JourneyScrollScreen({
           e.preventDefault();
         }
 
-        const isAtEarth = currentProgressRef.current <= 0.06;
-
-        if (isAtEarth) {
-          // At Earth: any swipe initiates the upward journey into the stars!
-          const step = Math.abs(dragDelta) * 0.0035;
+        // Swiping/dragging UP (currentTouchY < startTouchY, dragDelta < 0):
+        // THIS IS SCROLL UP: ascends upward into the stars!
+        if (dragDelta < 0) {
+          const step = Math.abs(dragDelta) * 0.0022;
           updateProgress(currentProgressRef.current + step);
         } else if (dragDelta > 0) {
-          // Dragging DOWN (mobile "scroll up") -> ascends into the stars!
-          const step = dragDelta * 0.0035;
-          updateProgress(currentProgressRef.current + step);
-        } else if (dragDelta < 0) {
-          // Dragging UP (mobile "scroll down")
-          if (currentProgressRef.current >= 0.85) {
-            triggerNavigateHome();
-          } else {
-            const step = Math.abs(dragDelta) * 0.0035;
-            updateProgress(currentProgressRef.current - step);
-          }
+          // Swiping/dragging DOWN (dragDelta > 0):
+          // THIS IS SCROLL DOWN: returns downward toward Earth!
+          const step = Math.abs(dragDelta) * 0.0022;
+          updateProgress(currentProgressRef.current - step);
         }
       }
     };
@@ -339,7 +313,7 @@ export default function JourneyScrollScreen({
       window.removeEventListener('touchmove', onWebTouchMove);
       window.removeEventListener('touchend', onWebTouchEnd);
     };
-  }, [updateProgress, triggerNavigateHome]);
+  }, [updateProgress]);
 
   // ================= ANIMATED INTERPOLATIONS =================
   // 1. Earth Dusk Viewport (0.0 to 0.45): fades out and recedes downward as you ascend
@@ -375,58 +349,58 @@ export default function JourneyScrollScreen({
     extrapolate: 'clamp',
   });
 
-  // 4. Hero Title & CTA Button on Earth: fades out quickly as user ascends
+  // 4. Hero Title & CTA Button on Earth: fades out gently as user ascends
   const earthHeroOpacity = animProgress.interpolate({
+    inputRange: [0, 0.22],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+
+  // 5. "Scroll Up" Prompt indicator: fades out gently as ascent begins
+  const scrollUpPromptOpacity = animProgress.interpolate({
     inputRange: [0, 0.18],
     outputRange: [1, 0],
     extrapolate: 'clamp',
   });
 
-  // 5. "Scroll Up" Prompt indicator: fades out as ascent begins
-  const scrollUpPromptOpacity = animProgress.interpolate({
-    inputRange: [0, 0.14],
+  // 6. Sitting dog resting on grassy mound:
+  // Perfectly grounded on Earth mound, dissolves smoothly as flight begins
+  const sittingSoulOpacity = animProgress.interpolate({
+    inputRange: [0, 0.10],
     outputRange: [1, 0],
     extrapolate: 'clamp',
   });
 
-  // 6. Sitting dog resting on grassy mound:
-  // Strictly 1 at rest (0 to 0.08), then fades out completely by 0.14
-  const sittingSoulOpacity = animProgress.interpolate({
-    inputRange: [0, 0.08, 0.14],
-    outputRange: [1, 1, 0],
-    extrapolate: 'clamp',
-  });
-
   // 7. Ascending flying dog soul taking flight into the stars:
-  // Strictly 0 at rest (0 to 0.08), only fades in once ascent starts!
+  // Emerges smoothly from the resting position, then soars up into the stars
   const flyingSoulOpacity = animProgress.interpolate({
-    inputRange: [0, 0.08, 0.16, 0.78, 0.92],
-    outputRange: [0, 0, 1, 1, 0],
+    inputRange: [0, 0.10, 0.85, 1],
+    outputRange: [0, 1, 1, 0.95],
     extrapolate: 'clamp',
   });
 
   const flyingSoulTranslateY = animProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -SCREEN_HEIGHT * 0.38],
+    inputRange: [0, 0.06, 1],
+    outputRange: [0, 0, -SCREEN_HEIGHT * 0.48],
     extrapolate: 'clamp',
   });
 
   const flyingSoulScale = animProgress.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [1, 0.82, 0.35],
+    inputRange: [0, 0.06, 0.5, 1],
+    outputRange: [1, 1, 0.84, 0.65],
     extrapolate: 'clamp',
   });
 
   // 8. Constellation Memorial Stars: appear gently in the sky
   const starsGroupOpacity = animProgress.interpolate({
-    inputRange: [0.12, 0.45, 1],
+    inputRange: [0.14, 0.50, 1],
     outputRange: [0, 0.85, 1],
     extrapolate: 'clamp',
   });
 
   // 9. Fully-scrolled Universe tagline & down chevron
   const universeElementsOpacity = animProgress.interpolate({
-    inputRange: [0.72, 0.95, 1],
+    inputRange: [0.75, 0.95, 1],
     outputRange: [0, 0.7, 1],
     extrapolate: 'clamp',
   });
@@ -585,11 +559,31 @@ export default function JourneyScrollScreen({
         ))}
       </Animated.View>
 
-      {/* ================= SECTION 3: THE ASCENDING PET SOUL ================= */}
+      {/* ================= SECTION 3: THE PET SOUL (RESTING & ASCENDING) ================= */}
+      {/* Resting sitting dog: stays grounded at Earth mound, dissolves gently */}
       <Animated.View 
         style={[
-          styles.soulSpriteContainer, 
+          styles.sittingSoulContainer, 
           { 
+            opacity: sittingSoulOpacity,
+            transform: [{ translateY: hoverAnim }],
+          }
+        ]}
+        pointerEvents="none"
+      >
+        <Animated.Image 
+          source={ASSETS.dogSitting} 
+          style={styles.soulImage}
+          resizeMode="contain"
+        />
+      </Animated.View>
+
+      {/* Flying spirit dog: ascends smoothly across the sky into the cosmos */}
+      <Animated.View 
+        style={[
+          styles.flyingSoulContainer, 
+          { 
+            opacity: flyingSoulOpacity,
             transform: [
               { translateY: flyingSoulTranslateY },
               { translateY: hoverAnim },
@@ -599,25 +593,9 @@ export default function JourneyScrollScreen({
         ]}
         pointerEvents="none"
       >
-        {/* Resting sitting spirit dog (rests on Earth mound at progress 0, disappears on ascent) */}
         <Animated.Image 
-          source={ASSETS.dogSitting} 
-          style={[
-            styles.soulImage,
-            styles.absoluteFillImage,
-            { opacity: sittingSoulOpacity }
-          ]}
-          resizeMode="contain"
-        />
-
-        {/* Flying spirit dog ascending through cosmic sky (only visible once ascent starts) */}
-        <Animated.Image 
-          source={ASSETS.dogAscendingSpace} 
-          style={[
-            styles.soulImage,
-            styles.absoluteFillImage,
-            { opacity: flyingSoulOpacity }
-          ]}
+          source={ASSETS.dogAscendingClouds} 
+          style={styles.soulImage}
           resizeMode="contain"
         />
       </Animated.View>
@@ -634,7 +612,6 @@ export default function JourneyScrollScreen({
           So many loved ones,{"\n"}forever in our sky.
         </Text>
 
-        {/* Down chevron indicator: continuing scroll or tapping transitions to Home */}
         <TouchableOpacity 
           activeOpacity={0.8}
           onPress={triggerNavigateHome}
@@ -809,27 +786,30 @@ const styles = StyleSheet.create({
     textShadowRadius: 4,
   },
 
-  /* PET SOUL SPRITE */
-  soulSpriteContainer: {
+  /* PET SOUL SPRITE CONTAINERS */
+  sittingSoulContainer: {
     position: 'absolute',
     top: '52%',
-    left: (SCREEN_WIDTH - SCREEN_WIDTH * 0.74) / 2,
-    width: SCREEN_WIDTH * 0.74,
+    left: 0,
+    right: 0,
     height: '32%',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 40,
+    zIndex: 38,
   },
-  soulImage: {
-    width: '100%',
-    height: '100%',
-  },
-  absoluteFillImage: {
+  flyingSoulContainer: {
     position: 'absolute',
-    top: 0,
+    top: '52%',
     left: 0,
     right: 0,
-    bottom: 0,
+    height: '32%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 42,
+  },
+  soulImage: {
+    width: '74%',
+    height: '100%',
   },
 
   /* MEMORIAL STARS & NAME LABELS */
@@ -889,14 +869,15 @@ const styles = StyleSheet.create({
     textShadowRadius: 6,
   },
   scrollDownIndicator: {
-    paddingVertical: 4,
-    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
     alignItems: 'center',
+    marginTop: 4,
   },
   chevronDownText: {
-    fontSize: 24,
+    fontSize: 22,
     color: '#FFFFFF',
     fontWeight: '300',
-    lineHeight: 24,
+    lineHeight: 22,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ASSETS } from '../constants/assets';
-import { THEME } from '../constants/theme';
 import { constellationStars as initialStars } from '../mockData/stars';
 
 export default function StarDomeModal({
@@ -21,14 +20,33 @@ export default function StarDomeModal({
   onOpenForm,
   customStars = [],
 }) {
-  const [stars, setStars] = useState([...customStars, ...initialStars]);
+  // Deduplicate stars by name to prevent overlapping duplicate stars
+  const getUniqueStars = (customList) => {
+    const seen = new Set();
+    const result = [];
+    if (Array.isArray(customList)) {
+      for (const s of customList) {
+        if (s && s.name && !seen.has(s.name.trim().toLowerCase())) {
+          seen.add(s.name.trim().toLowerCase());
+          result.push(s);
+        }
+      }
+    }
+    for (const s of initialStars) {
+      if (s && s.name && !seen.has(s.name.trim().toLowerCase())) {
+        seen.add(s.name.trim().toLowerCase());
+        result.push(s);
+      }
+    }
+    return result;
+  };
+
+  const [stars, setStars] = useState(() => getUniqueStars(customStars));
   const [selectedStar, setSelectedStar] = useState(null);
 
   // Sync custom stars when updated
   React.useEffect(() => {
-    if (customStars.length > 0) {
-      setStars([...customStars, ...initialStars]);
-    }
+    setStars(getUniqueStars(customStars));
   }, [customStars]);
 
   const handleOfferLotus = (starId) => {
@@ -46,7 +64,7 @@ export default function StarDomeModal({
   };
 
   const handleShareStar = async (star) => {
-    const msg = `✨ In loving memory of ${star.name} (${star.type}).\n"${star.tribute}"\nShining forever in the Farewell to Stairway constellation sky.\n🌟 https://allpetsgotoheaven.app/star/${star.id}`;
+    const msg = `✨ In loving memory of ${star.name} (${star.type}).\n"${star.tribute || star.message}"\nShining forever in the Farewell to Stairway constellation sky.\n🌟 https://allpetsgotoheaven.app/star/${star.id}`;
     try {
       await Share.share({ message: msg, title: `Memorial for ${star.name}` });
     } catch (e) {
@@ -72,6 +90,7 @@ export default function StarDomeModal({
               style={styles.backBtn}
               onPress={onClose}
               activeOpacity={0.7}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
               <Text style={styles.backIcon}>✕</Text>
             </TouchableOpacity>
@@ -84,21 +103,35 @@ export default function StarDomeModal({
             <View style={{ width: 38 }} />
           </View>
 
-          {/* Star Sky Canvas with Interactive Stars */}
+          {/* Star Sky Canvas with Interactive Memorial Stars */}
           <View style={styles.skyCanvas}>
-            {stars.map((star) => (
-              <TouchableOpacity
-                key={star.id}
-                style={[styles.starTouchable, { left: `${star.x}%`, top: `${star.y}%` }]}
-                activeOpacity={0.7}
-                onPress={() => setSelectedStar(star)}
-              >
-                <View style={[styles.starCore, { backgroundColor: star.color, shadowColor: star.color }]}>
-                  <View style={[styles.starPulseHalo, { backgroundColor: star.color }]} />
-                </View>
-                <Text style={styles.starLabelText}>{star.name}</Text>
-              </TouchableOpacity>
-            ))}
+            {stars.map((star) => {
+              const isRightSide = (star.x || 50) > 60;
+              return (
+                <TouchableOpacity
+                  key={star.id || star.name}
+                  style={[
+                    styles.starTouchable,
+                    {
+                      top: `${star.y}%`,
+                      ...(isRightSide 
+                        ? { right: `${Math.max(5, 100 - star.x)}%` } 
+                        : { left: `${Math.max(5, star.x)}%` }
+                      ),
+                    },
+                  ]}
+                  activeOpacity={0.75}
+                  onPress={() => setSelectedStar(star)}
+                >
+                  <View style={[styles.starRow, isRightSide && styles.starRowReverse]}>
+                    <Text style={styles.starGlyphIcon}>✦</Text>
+                    <View style={styles.namePill}>
+                      <Text style={styles.namePillText}>{star.name}</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           {/* Bottom Floating Bar */}
@@ -127,20 +160,24 @@ export default function StarDomeModal({
             <View style={styles.starDetailBackdrop}>
               <View style={styles.starDetailCard}>
                 <View style={styles.starDetailHeader}>
-                  <View style={[styles.starDotIndicator, { backgroundColor: selectedStar.color }]} />
+                  <Text style={styles.starDetailGlyph}>✦</Text>
                   <Text style={styles.starDetailName}>{selectedStar.name}</Text>
-                  <TouchableOpacity onPress={() => setSelectedStar(null)}>
+                  <TouchableOpacity 
+                    onPress={() => setSelectedStar(null)}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  >
                     <Text style={styles.closeStarDetail}>✕</Text>
                   </TouchableOpacity>
                 </View>
 
                 <Text style={styles.starDetailType}>{selectedStar.type} • {selectedStar.years}</Text>
-                <Text style={styles.starDetailTribute}>"{selectedStar.tribute}"</Text>
+                <Text style={styles.starDetailTribute}>"{selectedStar.tribute || selectedStar.message}"</Text>
 
                 <View style={styles.starActionsRow}>
                   <TouchableOpacity 
                     style={styles.lotusBtn}
                     onPress={() => handleOfferLotus(selectedStar.id)}
+                    activeOpacity={0.75}
                   >
                     <Text style={styles.lotusBtnText}>🪷 Offer Lotus ({selectedStar.likes || 1})</Text>
                   </TouchableOpacity>
@@ -148,6 +185,7 @@ export default function StarDomeModal({
                   <TouchableOpacity 
                     style={styles.shareBtn}
                     onPress={() => handleShareStar(selectedStar)}
+                    activeOpacity={0.75}
                   >
                     <Text style={styles.shareBtnText}>📤 Share</Text>
                   </TouchableOpacity>
@@ -170,6 +208,8 @@ const styles = StyleSheet.create({
   },
   fullBackground: {
     flex: 1,
+    width: '100%',
+    height: '100%',
   },
   topBar: {
     flexDirection: 'row',
@@ -202,11 +242,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: 0.3,
+    fontFamily: Platform.OS === 'web' ? '"Inter", -apple-system, sans-serif' : 'sans-serif',
   },
   topBarSub: {
-    fontSize: 11,
+    fontSize: 11.5,
     color: '#93C5FD',
     marginTop: 2,
+    fontFamily: Platform.OS === 'web' ? '"Inter", -apple-system, sans-serif' : 'sans-serif',
   },
   skyCanvas: {
     flex: 1,
@@ -214,36 +256,43 @@ const styles = StyleSheet.create({
   },
   starTouchable: {
     position: 'absolute',
-    alignItems: 'center',
-    padding: 8,
     zIndex: 15,
+    padding: 4,
   },
-  starCore: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+  starRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 10,
-    elevation: 8,
+    gap: 6,
   },
-  starPulseHalo: {
-    position: 'absolute',
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    opacity: 0.35,
+  starRowReverse: {
+    flexDirection: 'row-reverse',
   },
-  starLabelText: {
-    fontSize: 11,
-    fontWeight: '700',
+  starGlyphIcon: {
+    fontSize: 16,
+    color: '#FFDE7A',
+    textShadowColor: 'rgba(255, 222, 122, 0.85)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 8,
+  },
+  namePill: {
+    backgroundColor: 'rgba(8, 14, 30, 0.88)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.20)',
+    paddingVertical: 3,
+    paddingHorizontal: 9,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.6,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  namePillText: {
+    fontSize: 12,
+    fontWeight: '500',
     color: '#FFFFFF',
-    marginTop: 4,
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
+    letterSpacing: 0.3,
+    fontFamily: Platform.OS === 'web' ? '"Inter", -apple-system, sans-serif' : 'sans-serif',
   },
   bottomBar: {
     paddingHorizontal: 20,
@@ -270,6 +319,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: 0.3,
+    fontFamily: Platform.OS === 'web' ? '"Inter", -apple-system, sans-serif' : 'sans-serif',
   },
   starDetailBackdrop: {
     position: 'absolute',
@@ -301,17 +351,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  starDotIndicator: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+  starDetailGlyph: {
+    fontSize: 22,
+    color: '#FFDE7A',
     marginRight: 10,
+    textShadowColor: 'rgba(255, 222, 122, 0.75)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 8,
   },
   starDetailName: {
     fontSize: 20,
     fontWeight: '700',
     color: '#FFFFFF',
     flex: 1,
+    fontFamily: Platform.OS === 'web' ? '"Inter", -apple-system, sans-serif' : 'sans-serif',
   },
   closeStarDetail: {
     fontSize: 18,
@@ -322,6 +375,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#93C5FD',
     marginBottom: 12,
+    fontFamily: Platform.OS === 'web' ? '"Inter", -apple-system, sans-serif' : 'sans-serif',
   },
   starDetailTribute: {
     fontSize: 15,
@@ -332,6 +386,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 12,
     marginBottom: 16,
+    fontFamily: Platform.OS === 'web' ? '"Inter", -apple-system, sans-serif' : 'sans-serif',
   },
   starActionsRow: {
     flexDirection: 'row',
@@ -351,6 +406,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#F472B6',
+    fontFamily: Platform.OS === 'web' ? '"Inter", -apple-system, sans-serif' : 'sans-serif',
   },
   shareBtn: {
     flex: 1,
@@ -365,11 +421,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#93C5FD',
+    fontFamily: Platform.OS === 'web' ? '"Inter", -apple-system, sans-serif' : 'sans-serif',
   },
   starBlessingFootnote: {
     fontSize: 11,
     color: '#64748B',
     textAlign: 'center',
     marginTop: 4,
+    fontFamily: Platform.OS === 'web' ? '"Inter", -apple-system, sans-serif' : 'sans-serif',
   },
 });
