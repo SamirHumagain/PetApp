@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ASSETS } from '../constants/assets';
-import { THEME } from '../constants/theme';
 import PillButton from '../components/PillButton';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -186,7 +185,7 @@ export default function JourneyScrollScreen({
 
   // Wheel handling for Web:
   // deltaY < 0 = SCROLL UP => progress increases upward into the stars!
-  // deltaY > 0 = SCROLL DOWN => if at Universe view (progress >= 0.90), navigates to Home!
+  // deltaY > 0 = SCROLL DOWN => if at Universe view (progress >= 0.88), navigates to Home!
   const handleWheel = useCallback((e) => {
     if (isNavigatingHomeRef.current) return;
     const delta = e.deltaY;
@@ -197,8 +196,7 @@ export default function JourneyScrollScreen({
       updateProgress(currentProgressRef.current + step);
     } else if (delta > 0) {
       // Scrolling DOWN
-      if (currentProgressRef.current >= 0.90) {
-        // Reached fully-scrolled universe view and continues scrolling down -> Navigate to Home!
+      if (currentProgressRef.current >= 0.88) {
         triggerNavigateHome();
       } else {
         const step = delta * 0.0022;
@@ -208,40 +206,43 @@ export default function JourneyScrollScreen({
   }, [updateProgress, triggerNavigateHome]);
 
   // Touch / PanResponder handling for Mobile & Gestures:
-  // REVERSED SCROLL TRIGGER LOGIC:
-  // On mobile touch screens, users drag DOWN (dy > 0) to "scroll up" towards content above!
-  // So dragging DOWN (dy > 0) increases progress towards the sky and stars!
-  // Dragging UP (dy < 0) scrolls DOWN towards Earth, or when at universe view, navigates to Home!
+  // Tracking incremental move deltas with prevYRef ensures fluid, 1:1, non-stuck gestures!
+  const prevYRef = useRef(0);
+
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dy) > 4,
+      onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dy) > 2,
+      onPanResponderGrant: (_, gestureState) => {
+        prevYRef.current = gestureState.y0;
+      },
       onPanResponderMove: (_, gestureState) => {
         if (isNavigatingHomeRef.current) return;
-        const dy = gestureState.dy;
+        // deltaY > 0 when user drags finger UPWARDS ("scroll up" gesture)
+        const deltaY = prevYRef.current - gestureState.moveY;
+        prevYRef.current = gestureState.moveY;
 
-        // dy > 0: Dragging DOWN (mobile "scroll up" gesture to see content above) -> Ascend into the stars!
-        if (dy > 6) {
-          const step = Math.abs(dy) * 0.0006;
+        if (deltaY > 0) {
+          // Dragging finger UP -> ascends into the stars!
+          const step = deltaY * 0.0035;
           updateProgress(currentProgressRef.current + step);
-        } else if (dy < -6) {
-          // dy < 0: Dragging UP (mobile "scroll down" gesture)
+        } else if (deltaY < 0) {
+          // Dragging finger DOWN
           if (currentProgressRef.current >= 0.88) {
-            // At universe view and continues scrolling down -> Navigate to Home!
             triggerNavigateHome();
           } else {
-            const step = Math.abs(dy) * 0.0006;
+            const step = Math.abs(deltaY) * 0.0035;
             updateProgress(currentProgressRef.current - step);
           }
         }
       },
       onPanResponderRelease: (_, gestureState) => {
         if (isNavigatingHomeRef.current) return;
-        if (gestureState.vy > 0.35) {
-          // Fast flick down -> ascend completely to universe
+        if (gestureState.vy < -0.3) {
+          // Fast flick up -> smoothly ascend all the way to universe!
           handleAscendSmooth();
-        } else if (gestureState.vy < -0.35 && currentProgressRef.current >= 0.85) {
-          // Fast flick up at universe -> navigate home
+        } else if (gestureState.vy > 0.3 && currentProgressRef.current >= 0.85) {
+          // Fast flick down at universe -> navigate home
           triggerNavigateHome();
         }
       },
@@ -257,7 +258,7 @@ export default function JourneyScrollScreen({
           // Scroll up into stars
           updateProgress(currentProgressRef.current + 0.2);
         } else if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
-          if (currentProgressRef.current >= 0.90) {
+          if (currentProgressRef.current >= 0.88) {
             triggerNavigateHome();
           } else {
             updateProgress(currentProgressRef.current - 0.2);
@@ -267,6 +268,61 @@ export default function JourneyScrollScreen({
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
+  }, [updateProgress, triggerNavigateHome]);
+
+  // Mobile Web touch gesture listener for deployed browser environments (Brave, Chrome, Safari)
+  // Non-passive listener with e.preventDefault() guarantees mobile browsers do NOT cancel touches for native scroll!
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+
+    let startTouchY = null;
+
+    const onWebTouchStart = (e) => {
+      if (e.touches && e.touches.length > 0) {
+        startTouchY = e.touches[0].clientY;
+      }
+    };
+
+    const onWebTouchMove = (e) => {
+      if (isNavigatingHomeRef.current || startTouchY === null) return;
+      if (e.touches && e.touches.length > 0) {
+        const currentTouchY = e.touches[0].clientY;
+        const delta = startTouchY - currentTouchY; // positive when dragging UP
+        startTouchY = currentTouchY;
+
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+
+        if (delta > 0) {
+          // Swiping UP -> ascend into the stars
+          const step = delta * 0.0035;
+          updateProgress(currentProgressRef.current + step);
+        } else if (delta < 0) {
+          // Swiping DOWN
+          if (currentProgressRef.current >= 0.88) {
+            triggerNavigateHome();
+          } else {
+            const step = Math.abs(delta) * 0.0035;
+            updateProgress(currentProgressRef.current - step);
+          }
+        }
+      }
+    };
+
+    const onWebTouchEnd = () => {
+      startTouchY = null;
+    };
+
+    window.addEventListener('touchstart', onWebTouchStart, { passive: true });
+    window.addEventListener('touchmove', onWebTouchMove, { passive: false });
+    window.addEventListener('touchend', onWebTouchEnd, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', onWebTouchStart);
+      window.removeEventListener('touchmove', onWebTouchMove);
+      window.removeEventListener('touchend', onWebTouchEnd);
+    };
   }, [updateProgress, triggerNavigateHome]);
 
   // ================= ANIMATED INTERPOLATIONS =================
@@ -317,17 +373,19 @@ export default function JourneyScrollScreen({
     extrapolate: 'clamp',
   });
 
-  // 6. Sitting dog resting on grassy mound
+  // 6. Sitting dog resting on grassy mound:
+  // Strictly 1 at rest (0 to 0.08), then fades out completely by 0.14
   const sittingSoulOpacity = animProgress.interpolate({
-    inputRange: [0, 0.1, 0.2],
-    outputRange: [1, 0.6, 0],
+    inputRange: [0, 0.08, 0.14],
+    outputRange: [1, 1, 0],
     extrapolate: 'clamp',
   });
 
-  // 7. Ascending flying dog soul taking flight into the stars
+  // 7. Ascending flying dog soul taking flight into the stars:
+  // Strictly 0 at rest (0 to 0.08), only fades in once ascent starts!
   const flyingSoulOpacity = animProgress.interpolate({
-    inputRange: [0, 0.08, 0.78, 0.92],
-    outputRange: [0, 1, 1, 0],
+    inputRange: [0, 0.08, 0.16, 0.78, 0.92],
+    outputRange: [0, 0, 1, 1, 0],
     extrapolate: 'clamp',
   });
 
@@ -525,7 +583,7 @@ export default function JourneyScrollScreen({
         ]}
         pointerEvents="none"
       >
-        {/* Resting sitting spirit dog (rests on Earth mound at progress 0) */}
+        {/* Resting sitting spirit dog (rests on Earth mound at progress 0, disappears on ascent) */}
         <Animated.Image 
           source={ASSETS.dogSitting} 
           style={[
@@ -536,7 +594,7 @@ export default function JourneyScrollScreen({
           resizeMode="contain"
         />
 
-        {/* Flying spirit dog ascending through cosmic sky */}
+        {/* Flying spirit dog ascending through cosmic sky (only visible once ascent starts) */}
         <Animated.Image 
           source={ASSETS.dogAscendingSpace} 
           style={[
@@ -583,6 +641,7 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#070C1E',
     overflow: 'hidden',
+    ...(Platform.OS === 'web' ? { touchAction: 'none' } : {}),
   },
 
   fullScreenBg: {
