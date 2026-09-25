@@ -73,6 +73,38 @@ export default function TwoC2PGatewayModal({
     }
   };
 
+  // Web iframe message listener for Vercel / browser deployment
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+
+    const onWebMessage = (event) => {
+      try {
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        if (data && data.event === 'PAYMENT_SUCCESS') {
+          const authData = {
+            channel: data.channel || 'PromptPay QR (2C2P)',
+            transactionRef: data.transactionRef || `2C2P-TH-${Date.now().toString().slice(-8)}`,
+            amount: data.amount || amount,
+            invoiceNo: data.invoiceNo || invoiceNo,
+            authCode: data.authCode || `AUTH-2C2P-${Math.floor(100000 + Math.random() * 900000)}`,
+            status: 'PAID',
+            paidAt: new Date().toISOString(),
+          };
+          onPaymentSuccess(authData);
+        } else if (data && data.event === 'OPEN_BROWSER') {
+          handleOpenExternalBrowser();
+        } else if (data && data.event === 'CANCEL') {
+          onClose();
+        }
+      } catch (e) {
+        // Non-JSON message from other extensions, ignore
+      }
+    };
+
+    window.addEventListener('message', onWebMessage);
+    return () => window.removeEventListener('message', onWebMessage);
+  }, [amount, invoiceNo, onPaymentSuccess, onClose]);
+
   // Inspect navigation state changes for 2C2P success/callback URLs
   const handleNavigationStateChange = (navState) => {
     setCurrentUrl(navState.url);
@@ -309,6 +341,8 @@ export default function TwoC2PGatewayModal({
           };
           if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
             window.ReactNativeWebView.postMessage(JSON.stringify(payload));
+          } else if (window.parent && window.parent !== window) {
+            window.parent.postMessage(JSON.stringify(payload), '*');
           } else {
             alert('2C2P Payment Successful: ' + channel);
           }
@@ -317,6 +351,8 @@ export default function TwoC2PGatewayModal({
         function openExternal() {
           if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
             window.ReactNativeWebView.postMessage(JSON.stringify({ event: 'OPEN_BROWSER' }));
+          } else if (window.parent && window.parent !== window) {
+            window.parent.postMessage(JSON.stringify({ event: 'OPEN_BROWSER' }), '*');
           }
         }
       </script>
@@ -358,27 +394,42 @@ export default function TwoC2PGatewayModal({
           </TouchableOpacity>
         </View>
 
-        {/* WebView Container */}
+        {/* WebView Container (or iframe on Web) */}
         <View style={styles.webViewWrapper}>
-          <WebView
-            ref={webViewRef}
-            source={
-              useLiveUrl && currentUrl.startsWith('http')
-                ? { uri: currentUrl }
-                : { html: generate2C2PHostedHTML() }
-            }
-            onMessage={handleMessage}
-            onNavigationStateChange={handleNavigationStateChange}
-            javaScriptEnabled={true}
-            domStorageEnabled={true}
-            startInLoadingState={true}
-            renderLoading={() => (
-              <View style={styles.loadingBox}>
-                <ActivityIndicator size="large" color="#00A3E0" />
-                <Text style={styles.loadingText}>Connecting to 2C2P Thailand Secure Gateway...</Text>
-              </View>
-            )}
-          />
+          {Platform.OS === 'web' ? (
+            <iframe
+              src={useLiveUrl && currentUrl.startsWith('http') ? currentUrl : undefined}
+              srcDoc={!useLiveUrl || !currentUrl.startsWith('http') ? generate2C2PHostedHTML() : undefined}
+              style={{
+                width: '100%',
+                height: '100%',
+                minHeight: '100%',
+                border: 'none',
+                display: 'block',
+              }}
+              title="2C2P Payment Gateway"
+            />
+          ) : (
+            <WebView
+              ref={webViewRef}
+              source={
+                useLiveUrl && currentUrl.startsWith('http')
+                  ? { uri: currentUrl }
+                  : { html: generate2C2PHostedHTML() }
+              }
+              onMessage={handleMessage}
+              onNavigationStateChange={handleNavigationStateChange}
+              javaScriptEnabled={true}
+              domStorageEnabled={true}
+              startInLoadingState={true}
+              renderLoading={() => (
+                <View style={styles.loadingBox}>
+                  <ActivityIndicator size="large" color="#00A3E0" />
+                  <Text style={styles.loadingText}>Connecting to 2C2P Thailand Secure Gateway...</Text>
+                </View>
+              )}
+            />
+          )}
         </View>
       </View>
     </Modal>
