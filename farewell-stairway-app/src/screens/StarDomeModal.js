@@ -124,7 +124,9 @@ export default function StarDomeModal({
                   onPress={() => setSelectedStar(star)}
                 >
                   <View style={[styles.starRow, isRightSide && styles.starRowReverse]}>
-                    <Text style={styles.starGlyphIcon}>✦</Text>
+                    <View style={styles.starHalo}>
+                      <Text style={styles.starGlyphIcon}>✦</Text>
+                    </View>
                     <View style={styles.namePill}>
                       <Text style={styles.namePillText}>{star.name}</Text>
                     </View>
@@ -267,12 +269,28 @@ const styles = StyleSheet.create({
   starRowReverse: {
     flexDirection: 'row-reverse',
   },
+  starHalo: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255, 230, 100, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 10,
+    elevation: 4,
+  },
   starGlyphIcon: {
-    fontSize: 16,
-    color: '#FFDE7A',
-    textShadowColor: 'rgba(255, 222, 122, 0.85)',
+    fontSize: 20,
+    color: '#FFFDE8',
+    textShadowColor: '#FFD700',
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 8,
+    textShadowRadius: 10,
+    ...(Platform.OS === 'web' ? {
+      filter: 'drop-shadow(0 0 3px #FFF7B2) drop-shadow(0 0 8px rgba(255, 225, 80, 0.95)) drop-shadow(0 0 16px rgba(255, 190, 40, 0.75))',
+    } : {}),
   },
   namePill: {
     backgroundColor: 'rgba(8, 14, 30, 0.88)',

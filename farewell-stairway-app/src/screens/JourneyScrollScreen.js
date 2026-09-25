@@ -64,7 +64,9 @@ function MemorialStar({ star, onSelectStar }) {
         }}
         style={styles.starRow}
       >
-        <Text style={styles.starGlyphIcon}>✦</Text>
+        <View style={styles.starHalo}>
+          <Text style={styles.starGlyphIcon}>✦</Text>
+        </View>
 
         {isRevealed && (
           <TouchableOpacity 
@@ -133,7 +135,7 @@ export default function JourneyScrollScreen({
 
   const autoEnterTimerRef = useRef(null);
 
-  // Transition smoothly to Home page
+  // Transition quickly and smoothly to Home page
   const triggerNavigateHome = useCallback(() => {
     if (isNavigatingHomeRef.current) return;
     isNavigatingHomeRef.current = true;
@@ -141,7 +143,7 @@ export default function JourneyScrollScreen({
 
     Animated.timing(screenFadeAnim, {
       toValue: 0,
-      duration: 800,
+      duration: 200,
       easing: Easing.out(Easing.quad),
       useNativeDriver: true,
     }).start(() => {
@@ -149,36 +151,39 @@ export default function JourneyScrollScreen({
     });
   }, [screenFadeAnim, onBeginJourney]);
 
-  // Update progress helper: auto enters sanctuary once scrolled to the top universe
+  // Update progress helper: promptly enters sanctuary as soon as dog reaches the sky
   const updateProgress = useCallback((newVal) => {
     const clamped = Math.max(0, Math.min(1, newVal));
     currentProgressRef.current = clamped;
     animProgress.setValue(clamped);
     setDisplayProgress(clamped);
 
-    // Auto enter sanctuary when scroll reaches the universe view
-    if (clamped >= 0.94 && !isNavigatingHomeRef.current) {
+    // Auto enter sanctuary promptly once the dog reaches the starry sky (0.75)
+    if (clamped >= 0.75 && !isNavigatingHomeRef.current) {
       if (autoEnterTimerRef.current) clearTimeout(autoEnterTimerRef.current);
       autoEnterTimerRef.current = setTimeout(() => {
         triggerNavigateHome();
-      }, 700);
+      }, 40);
     }
   }, [animProgress, triggerNavigateHome]);
 
-  // Smoothly ascend upwards into the stars upon clicking "Scroll Up" or CTA, then auto-enters
+  // Smoothly ascend upwards with the original flying pace, then enters homepage right as dog reaches sky
   const handleAscendSmooth = useCallback(() => {
+    if (isNavigatingHomeRef.current) return;
+
+    // Maintain the graceful flying pace of the dog
     Animated.timing(animProgress, {
       toValue: 1,
-      duration: 3800,
-      easing: Easing.bezier(0.25, 0.1, 0.25, 1.0),
+      duration: 2800,
+      easing: Easing.bezier(0.22, 1, 0.36, 1),
       useNativeDriver: true,
-    }).start(() => {
-      currentProgressRef.current = 1;
-      setDisplayProgress(1);
-      setTimeout(() => {
-        triggerNavigateHome();
-      }, 700);
-    });
+    }).start();
+
+    // Right as the dog reaches the celestial sky (~1900ms), transition into the homepage quickly
+    if (autoEnterTimerRef.current) clearTimeout(autoEnterTimerRef.current);
+    autoEnterTimerRef.current = setTimeout(() => {
+      triggerNavigateHome();
+    }, 1900);
   }, [animProgress, triggerNavigateHome]);
 
   // Begin journey button click: smoothly ascends and auto-enters
@@ -822,12 +827,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
+  starHalo: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255, 230, 100, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 10,
+    elevation: 4,
+  },
   starGlyphIcon: {
-    fontSize: 16,
-    color: '#FFDE7A',
-    textShadowColor: 'rgba(255, 222, 122, 0.75)',
+    fontSize: 20,
+    color: '#FFFDE8',
+    textShadowColor: '#FFD700',
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 6,
+    textShadowRadius: 10,
+    ...(Platform.OS === 'web' ? {
+      filter: 'drop-shadow(0 0 3px #FFF7B2) drop-shadow(0 0 8px rgba(255, 225, 80, 0.95)) drop-shadow(0 0 16px rgba(255, 190, 40, 0.75))',
+    } : {}),
   },
   namePill: {
     backgroundColor: 'rgba(8, 14, 30, 0.88)',
